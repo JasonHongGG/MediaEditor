@@ -71,9 +71,10 @@ struct YtdlpProgress {
 }
 
 /// Parse yt-dlp output lines to extract download progress details.
-/// yt-dlp outputs lines like: [download]  45.2% of 5.07MiB at 1.23MiB/s ETA 00:03
+/// Handles both standard lines like: [download]  45.2% of 5.07MiB at 1.23MiB/s ETA 00:03
+/// and --progress-template lines like: [progress]  45.2% of 5.07MiB at 1.23MiB/s ETA 00:03
 fn parse_ytdlp_progress(line: &str) -> Option<YtdlpProgress> {
-    if !line.contains("[download]") {
+    if !line.contains("[download]") && !line.contains("[progress]") {
         return None;
     }
     let trimmed = line.trim();
@@ -120,22 +121,22 @@ fn parse_ytdlp_progress(line: &str) -> Option<YtdlpProgress> {
 }
 
 /// Detect the current phase from yt-dlp output lines
-fn detect_phase(line: &str) -> Option<&str> {
+fn detect_phase(line: &str) -> Option<String> {
     let trimmed = line.trim();
     if trimmed.starts_with("[download] Destination:") {
         if trimmed.contains(".f") || trimmed.contains("video") {
-            return Some("downloading_video");
+            return Some("downloading_video".to_string());
         }
-        return Some("downloading");
+        return Some("downloading".to_string());
     }
     if trimmed.starts_with("[Merger]") || trimmed.starts_with("[Merge]") || trimmed.contains("Merging") {
-        return Some("merging");
+        return Some("merging".to_string());
     }
     if trimmed.starts_with("[ExtractAudio]") || trimmed.starts_with("[ffmpeg]") {
-        return Some("converting");
+        return Some("converting".to_string());
     }
     if trimmed.starts_with("[download] 100%") {
-        return Some("finalizing");
+        return Some("finalizing".to_string());
     }
     None
 }
@@ -167,10 +168,24 @@ async fn get_youtube_info(url: String) -> Result<VideoInfo, String> {
 }
 
 #[tauri::command]
-async fn download_youtube(app: AppHandle, url: String, format: String, quality: String) -> Result<(), String> {
+async fn download_youtube(app: AppHandle, url: String, format: String, quality: String, save_dir: String) -> Result<(), String> {
     let ytdlp = find_bundled("yt-dlp")?;
 
-    let mut args = vec!["--newline".to_string(), "--progress".to_string(), "-o".to_string(), "%(title)s.%(ext)s".to_string()];
+    // Build output path template using user-chosen directory
+    let output_template = format!("{}{}%(title)s.%(ext)s",
+        save_dir,
+        if save_dir.ends_with('\\') || save_dir.ends_with('/') { "" } else { "\\" }
+    );
+
+    let mut args = vec![
+        "--no-playlist".to_string(),
+        "--newline".to_string(),
+        "--progress".to_string(),
+        "--progress-template".to_string(),
+        "[progress] %(progress._percent_str)s of %(progress._total_bytes_str)s at %(progress._speed_str)s ETA %(progress._eta_str)s".to_string(),
+        "-o".to_string(),
+        output_template,
+    ];
 
     let is_video = format == "mp4" || format == "mkv";
 
@@ -209,10 +224,9 @@ async fn download_youtube(app: AppHandle, url: String, format: String, quality: 
         .spawn()
         .map_err(|e| format!("Failed to execute yt-dlp: {}", e))?;
 
-    // Use a channel to receive progress from the reader thread
+    // Use a channel to receive progress from the reader threads
     let (tx, rx) = mpsc::channel::<(String, bool)>();
 
-    // Read stdout on a separate thread to avoid blocking async runtime
     let stdout = child.stdout.take();
     let stderr = child.stderr.take();
 
@@ -240,26 +254,41 @@ async fn download_youtube(app: AppHandle, url: String, format: String, quality: 
         }
     });
 
-    // Process lines from both stdout and stderr on the async side
-    let mut current_phase = if is_video { "downloading_video" } else { "downloading" };
+    let mut current_phase = if is_video { "downloading_video".to_string() } else { "downloading".to_string() };
 
     // Emit initial status
     let _ = app.emit("download-progress", ProgressPayload {
         percent: 0.0,
         status: "downloading".to_string(),
         status_text: "Starting download...".to_string(),
-        phase: current_phase.to_string(),
+        phase: current_phase.clone(),
     });
 
     for (line, _is_stderr) in rx {
-        // Check for phase changes
+        // Detect phase changes
         if let Some(phase) = detect_phase(&line) {
             current_phase = phase;
+
+            // Emit phase change event with descriptive text
+            let phase_text = match current_phase.as_str() {
+                "merging" => "Merging video and audio...".to_string(),
+                "converting" => "Converting audio format...".to_string(),
+                "finalizing" => "Finalizing...".to_string(),
+                _ => String::new(),
+            };
+            if !phase_text.is_empty() {
+                let _ = app.emit("download-progress", ProgressPayload {
+                    percent: 99.0,
+                    status: "processing".to_string(),
+                    status_text: phase_text,
+                    phase: current_phase.clone(),
+                });
+            }
         }
 
-        // Parse progress info
+        // Parse progress percentage and details
         if let Some(prog) = parse_ytdlp_progress(&line) {
-            let status_text = build_status_text(current_phase, &prog);
+            let status_text = build_status_text(&current_phase, &prog);
             let status = if prog.percent >= 100.0 {
                 "done".to_string()
             } else {
@@ -270,24 +299,8 @@ async fn download_youtube(app: AppHandle, url: String, format: String, quality: 
                 percent: prog.percent,
                 status,
                 status_text,
-                phase: current_phase.to_string(),
+                phase: current_phase.clone(),
             });
-        } else if let Some(phase) = detect_phase(&line) {
-            // Emit phase changes even without percentage (e.g., merging)
-            let status_text = match phase {
-                "merging" => "Merging video and audio...".to_string(),
-                "converting" => "Converting audio format...".to_string(),
-                "finalizing" => "Finalizing...".to_string(),
-                _ => String::new(),
-            };
-            if !status_text.is_empty() {
-                let _ = app.emit("download-progress", ProgressPayload {
-                    percent: 99.0,
-                    status: "processing".to_string(),
-                    status_text,
-                    phase: phase.to_string(),
-                });
-            }
         }
     }
 
@@ -298,7 +311,6 @@ async fn download_youtube(app: AppHandle, url: String, format: String, quality: 
     let status = child.wait().map_err(|e| format!("Failed to wait on yt-dlp: {}", e))?;
 
     if !status.success() {
-        // Emit error status
         let _ = app.emit("download-progress", ProgressPayload {
             percent: 0.0,
             status: "error".to_string(),
@@ -321,6 +333,18 @@ async fn download_youtube(app: AppHandle, url: String, format: String, quality: 
 
 /// Build a human-readable status text from the current phase and progress info
 fn build_status_text(phase: &str, prog: &YtdlpProgress) -> String {
+    let mut parts: Vec<String> = Vec::new();
+
+    if !prog.size.is_empty() && prog.size != "NA" {
+        parts.push(prog.size.clone());
+    }
+    if !prog.speed.is_empty() && prog.speed != "NA" {
+        parts.push(prog.speed.clone());
+    }
+    if !prog.eta.is_empty() && prog.eta != "NA" {
+        parts.push(format!("ETA {}", prog.eta));
+    }
+
     let phase_label = match phase {
         "downloading_video" => "Downloading video",
         "downloading" => "Downloading",
@@ -330,19 +354,11 @@ fn build_status_text(phase: &str, prog: &YtdlpProgress) -> String {
         _ => "Downloading",
     };
 
-    let mut parts = vec![format!("{}  {:.1}%", phase_label, prog.percent)];
-
-    if !prog.size.is_empty() {
-        parts.push(format!("of {}", prog.size));
+    if parts.is_empty() {
+        format!("{}...", phase_label)
+    } else {
+        format!("{}  •  {}", phase_label, parts.join("  •  "))
     }
-    if !prog.speed.is_empty() {
-        parts.push(format!("at {}", prog.speed));
-    }
-    if !prog.eta.is_empty() {
-        parts.push(format!("ETA {}", prog.eta));
-    }
-
-    parts.join("  •  ")
 }
 
 #[tauri::command]

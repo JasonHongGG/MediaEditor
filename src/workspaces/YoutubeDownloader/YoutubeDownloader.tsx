@@ -1,8 +1,9 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Search, Download, MonitorPlay, Music, Video as VideoIcon, CheckCircle2, AlertCircle, Loader2 } from 'lucide-react';
+import { Search, Download, MonitorPlay, Music, Video as VideoIcon, CheckCircle2, AlertCircle, FolderOpen } from 'lucide-react';
 import { invoke } from '@tauri-apps/api/core';
 import { listen, type UnlistenFn } from '@tauri-apps/api/event';
+import { open } from '@tauri-apps/plugin-dialog';
 import { Button } from '../../components/Button/Button';
 import { Card } from '../../components/Card/Card';
 import { Select } from '../../components/Select/Select';
@@ -30,7 +31,7 @@ export const YoutubeDownloader: React.FC = () => {
   const [isDownloading, setIsDownloading] = useState(false);
   const [progress, setProgress] = useState(0);
   const [statusText, setStatusText] = useState('');
-  const [phase, setPhase] = useState('');
+  const [downloadDone, setDownloadDone] = useState(false);
   const unlistenRef = useRef<UnlistenFn | null>(null);
 
   // Cleanup event listener on unmount
@@ -46,6 +47,7 @@ export const YoutubeDownloader: React.FC = () => {
     if (!url) return;
     setIsAnalyzing(true);
     setError(null);
+    setDownloadDone(false);
     log.info('Analyzing URL:', url);
     try {
       const data = await invoke<VideoInfo>('get_youtube_info', { url });
@@ -63,27 +65,43 @@ export const YoutubeDownloader: React.FC = () => {
   };
 
   const handleDownload = async () => {
+    // Ask user to pick a save directory first
+    const selectedDir = await open({
+      directory: true,
+      multiple: false,
+      title: 'Choose download location',
+    });
+
+    if (!selectedDir) {
+      log.info('User cancelled folder selection');
+      return;
+    }
+
+    const saveDir = selectedDir as string;
+    log.info('Save directory:', saveDir);
+
     setIsDownloading(true);
     setProgress(0);
     setStatusText('Starting download...');
-    setPhase('');
+    setDownloadDone(false);
     setError(null);
-    log.info(`Starting download: format=${format}, quality=${quality}`);
+    log.info(`Starting download: format=${format}, quality=${quality}, saveDir=${saveDir}`);
 
     // Listen for progress events from the Rust backend
     unlistenRef.current = await listen<{ percent: number; status: string; status_text: string; phase: string }>('download-progress', (event) => {
-      const { percent, status, status_text, phase: p } = event.payload;
-      log.debug(`Progress: ${percent.toFixed(1)}% [${status}] ${status_text}`);
+      const { percent, status_text } = event.payload;
+      log.debug(`Progress: ${percent.toFixed(1)}% — ${status_text}`);
       setProgress(Math.round(percent));
-      setStatusText(status_text);
-      setPhase(p);
+      if (status_text) {
+        setStatusText(status_text);
+      }
     });
 
     try {
-      await invoke('download_youtube', { url, format, quality });
+      await invoke('download_youtube', { url, format, quality, saveDir });
       setProgress(100);
       setStatusText('Download complete!');
-      setPhase('done');
+      setDownloadDone(true);
       log.info('Download completed successfully');
     } catch (e: any) {
       const errMsg = e.toString();
@@ -91,10 +109,8 @@ export const YoutubeDownloader: React.FC = () => {
       setError(errMsg);
       setProgress(0);
       setStatusText('');
-      setPhase('');
     } finally {
       setIsDownloading(false);
-      // Cleanup the listener
       if (unlistenRef.current) {
         unlistenRef.current();
         unlistenRef.current = null;
@@ -233,32 +249,19 @@ export const YoutubeDownloader: React.FC = () => {
                   {isDownloading ? (
                     <div className={styles.progressContainer}>
                       <div className={styles.progressHeader}>
-                        <span className={styles.progressPhase}>
-                          {phase === 'merging' || phase === 'converting' ? (
-                            <Loader2 size={14} className={styles.spinIcon} />
-                          ) : null}
-                          {phase === 'merging' ? 'Merging...' :
-                           phase === 'converting' ? 'Converting...' :
-                           phase === 'finalizing' ? 'Finalizing...' :
-                           'Downloading...'}
-                        </span>
+                        <span className={styles.progressLabel}>{statusText || 'Preparing...'}</span>
                         <span className={styles.progressPercent}>{progress}%</span>
                       </div>
                       <div className={styles.progressBar}>
                         <motion.div 
-                          className={`${styles.progressFill} ${(phase === 'merging' || phase === 'converting') ? styles.progressPulse : ''}`}
+                          className={styles.progressFill}
                           initial={{ width: 0 }}
                           animate={{ width: `${progress}%` }}
                           transition={{ duration: 0.3, ease: 'easeOut' }}
                         />
                       </div>
-                      {statusText && (
-                        <div className={styles.progressDetail}>
-                          {statusText}
-                        </div>
-                      )}
                     </div>
-                  ) : progress === 100 ? (
+                  ) : downloadDone ? (
                     <div className={styles.successMessage}>
                       <CheckCircle2 size={20} />
                       Downloaded Successfully
@@ -268,7 +271,7 @@ export const YoutubeDownloader: React.FC = () => {
                       size="lg" 
                       onClick={handleDownload} 
                       className={styles.downloadBtn}
-                      icon={<Download size={18} />}
+                      icon={<FolderOpen size={18} />}
                     >
                       Download {mode === 'video' ? 'Video' : 'Audio'}
                     </Button>

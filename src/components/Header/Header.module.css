@@ -30,8 +30,10 @@
 .right {
   display: flex;
   align-items: center;
+  justify-content: flex-end;
   gap: 6px;
   padding-right: 12px;
+  width: 200px;
   -webkit-app-region: no-drag;
 }
 
