@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Search, Download, MonitorPlay, Music, Video as VideoIcon, CheckCircle2, AlertCircle } from 'lucide-react';
+import { Search, Download, MonitorPlay, Music, Video as VideoIcon, CheckCircle2, AlertCircle, Loader2 } from 'lucide-react';
 import { invoke } from '@tauri-apps/api/core';
 import { listen, type UnlistenFn } from '@tauri-apps/api/event';
 import { Button } from '../../components/Button/Button';
@@ -29,6 +29,8 @@ export const YoutubeDownloader: React.FC = () => {
   
   const [isDownloading, setIsDownloading] = useState(false);
   const [progress, setProgress] = useState(0);
+  const [statusText, setStatusText] = useState('');
+  const [phase, setPhase] = useState('');
   const unlistenRef = useRef<UnlistenFn | null>(null);
 
   // Cleanup event listener on unmount
@@ -63,25 +65,33 @@ export const YoutubeDownloader: React.FC = () => {
   const handleDownload = async () => {
     setIsDownloading(true);
     setProgress(0);
+    setStatusText('Starting download...');
+    setPhase('');
     setError(null);
     log.info(`Starting download: format=${format}, quality=${quality}`);
 
     // Listen for progress events from the Rust backend
-    unlistenRef.current = await listen<{ percent: number; status: string }>('download-progress', (event) => {
-      const { percent, status } = event.payload;
-      log.debug(`Progress: ${percent.toFixed(1)}% [${status}]`);
+    unlistenRef.current = await listen<{ percent: number; status: string; status_text: string; phase: string }>('download-progress', (event) => {
+      const { percent, status, status_text, phase: p } = event.payload;
+      log.debug(`Progress: ${percent.toFixed(1)}% [${status}] ${status_text}`);
       setProgress(Math.round(percent));
+      setStatusText(status_text);
+      setPhase(p);
     });
 
     try {
       await invoke('download_youtube', { url, format, quality });
       setProgress(100);
+      setStatusText('Download complete!');
+      setPhase('done');
       log.info('Download completed successfully');
     } catch (e: any) {
       const errMsg = e.toString();
       log.error('Download failed:', errMsg);
       setError(errMsg);
       setProgress(0);
+      setStatusText('');
+      setPhase('');
     } finally {
       setIsDownloading(false);
       // Cleanup the listener
@@ -223,16 +233,30 @@ export const YoutubeDownloader: React.FC = () => {
                   {isDownloading ? (
                     <div className={styles.progressContainer}>
                       <div className={styles.progressHeader}>
-                        <span>Downloading...</span>
-                        <span>{progress}%</span>
+                        <span className={styles.progressPhase}>
+                          {phase === 'merging' || phase === 'converting' ? (
+                            <Loader2 size={14} className={styles.spinIcon} />
+                          ) : null}
+                          {phase === 'merging' ? 'Merging...' :
+                           phase === 'converting' ? 'Converting...' :
+                           phase === 'finalizing' ? 'Finalizing...' :
+                           'Downloading...'}
+                        </span>
+                        <span className={styles.progressPercent}>{progress}%</span>
                       </div>
                       <div className={styles.progressBar}>
                         <motion.div 
-                          className={styles.progressFill} 
+                          className={`${styles.progressFill} ${(phase === 'merging' || phase === 'converting') ? styles.progressPulse : ''}`}
                           initial={{ width: 0 }}
                           animate={{ width: `${progress}%` }}
+                          transition={{ duration: 0.3, ease: 'easeOut' }}
                         />
                       </div>
+                      {statusText && (
+                        <div className={styles.progressDetail}>
+                          {statusText}
+                        </div>
+                      )}
                     </div>
                   ) : progress === 100 ? (
                     <div className={styles.successMessage}>
