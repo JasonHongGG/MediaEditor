@@ -1,0 +1,126 @@
+.header {
+  height: var(--header-height);
+  background: var(--bg-surface);
+  border-bottom: 1px solid var(--border-light);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  user-select: none;
+  -webkit-app-region: drag;
+  position: relative;
+  z-index: 100;
+}
+
+.left, .center, .right {
+  display: flex;
+  align-items: center;
+  height: 100%;
+}
+
+.left {
+  padding-left: 16px;
+  width: 200px;
+}
+
+.center {
+  flex: 1;
+  justify-content: center;
+}
+
+.right {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding-right: 12px;
+  -webkit-app-region: no-drag;
+}
+
+.logo {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.logoIcon {
+  width: 24px;
+  height: 24px;
+  background: linear-gradient(135deg, var(--accent-primary), var(--accent-secondary));
+  border-radius: 6px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 800;
+  font-size: 14px;
+  color: #0f1115;
+}
+
+.logoText {
+  font-weight: 600;
+  font-size: 14px;
+  color: var(--text-primary);
+  letter-spacing: 0.5px;
+}
+
+.tabs {
+  display: flex;
+  gap: 4px;
+  background: var(--bg-base);
+  padding: 4px;
+  border-radius: var(--radius-lg);
+  border: 1px solid var(--border-subtle);
+  -webkit-app-region: no-drag;
+}
+
+.tab {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 20px;
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--text-muted);
+  border-radius: var(--radius-md);
+  transition: color 0.2s;
+  background: transparent;
+}
+
+.tab:hover {
+  color: var(--text-primary);
+}
+
+.tab.active {
+  color: var(--accent-primary);
+}
+
+.activeIndicator {
+  position: absolute;
+  inset: 0;
+  background: var(--bg-surface-elevated);
+  border-radius: var(--radius-md);
+  z-index: -1;
+  box-shadow: var(--shadow-sm);
+  border: 1px solid rgba(250, 204, 21, 0.15);
+}
+
+/* Window control buttons — compact rounded squares */
+.controlBtn {
+  width: 28px;
+  height: 28px;
+  border-radius: var(--radius-sm);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--text-muted);
+  transition: all 0.15s ease;
+}
+
+.controlBtn:hover {
+  background: rgba(255, 255, 255, 0.08);
+  color: var(--text-primary);
+}
+
+.closeBtn:hover {
+  background: rgba(161, 98, 7, 0.35);
+  color: var(--accent-secondary);
+}
