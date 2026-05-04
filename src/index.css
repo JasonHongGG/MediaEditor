@@ -1,5 +1,7 @@
+@import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap');
+
 :root {
-  --font-family: 'Inter', system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+  --font-family: 'Plus Jakarta Sans', 'Segoe UI', system-ui, sans-serif;
   
   /* Core Colors — Dark with Yellow */
   --bg-base: #0f1115;
@@ -53,7 +55,9 @@
 
 body {
   font-family: var(--font-family);
-  background-color: var(--bg-base);
+  background:
+    radial-gradient(circle at top, rgba(250, 204, 21, 0.12), transparent 32%),
+    linear-gradient(180deg, #111317, #0b0c0f 58%);
   color: var(--text-primary);
   line-height: 1.5;
   -webkit-font-smoothing: antialiased;
@@ -104,7 +108,10 @@ input, select, textarea {
   flex-direction: column;
   height: 100vh;
   width: 100vw;
-  background: radial-gradient(circle at 50% 0%, var(--glow-primary) 0%, transparent 50%), var(--bg-base);
+  background:
+    radial-gradient(circle at 50% 0%, var(--glow-primary) 0%, transparent 38%),
+    linear-gradient(180deg, rgba(255, 255, 255, 0.02), transparent 26%),
+    var(--bg-base);
 }
 
 .workspace-content {

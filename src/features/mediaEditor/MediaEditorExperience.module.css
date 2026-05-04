@@ -1,0 +1,697 @@
+.shell {
+  position: relative;
+  display: grid;
+  grid-template-columns: 320px minmax(0, 1fr);
+  gap: 18px;
+  height: 100%;
+  padding: 18px;
+}
+
+.dropOverlay {
+  position: absolute;
+  inset: 24px;
+  z-index: 40;
+  display: grid;
+  place-items: center;
+  border-radius: 34px;
+  border: 1px dashed rgba(250, 204, 21, 0.6);
+  background: rgba(7, 7, 8, 0.72);
+  color: rgba(250, 204, 21, 0.94);
+  backdrop-filter: blur(16px);
+}
+
+.sidebar,
+.previewPanel,
+.timelinePanel {
+  position: relative;
+  overflow: hidden;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  background: linear-gradient(180deg, rgba(24, 24, 28, 0.92), rgba(10, 10, 12, 0.96));
+  box-shadow: 0 18px 40px rgba(0, 0, 0, 0.32);
+  backdrop-filter: blur(20px);
+}
+
+.sidebar {
+  border-radius: 30px;
+}
+
+.panelGlow {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background:
+    radial-gradient(circle at top, rgba(250, 204, 21, 0.17), transparent 42%),
+    radial-gradient(circle at 82% 24%, rgba(251, 191, 36, 0.1), transparent 32%);
+}
+
+.sidebarContent {
+  position: relative;
+  z-index: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  height: 100%;
+  padding: 20px;
+}
+
+.sidebarHeader {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+}
+
+.importButton,
+.iconChip,
+.transportButton,
+.exportButton {
+  width: 42px;
+  height: 42px;
+  display: grid;
+  place-items: center;
+  border-radius: 14px;
+}
+
+.importButton,
+.iconChip,
+.transportButton,
+.toolbarButton,
+.exportButton,
+.emptyBin,
+.assetCard,
+.mutedRange {
+  transition:
+    transform 180ms ease,
+    background-color 180ms ease,
+    border-color 180ms ease,
+    color 180ms ease,
+    box-shadow 180ms ease;
+}
+
+.importButton,
+.iconChip,
+.transportButton,
+.toolbarButton,
+.exportButton {
+  color: rgba(255, 247, 217, 0.9);
+  background: rgba(255, 255, 255, 0.05);
+}
+
+.importButton:hover,
+.iconChip:hover,
+.transportButton:hover,
+.toolbarButton:hover,
+.exportButton:hover {
+  transform: translateY(-1px);
+  background: rgba(250, 204, 21, 0.12);
+}
+
+.assetList {
+  min-height: 0;
+  flex: 1;
+  overflow: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding-right: 4px;
+}
+
+.emptyBin {
+  min-height: 172px;
+  display: grid;
+  place-items: center;
+  gap: 12px;
+  border-radius: 24px;
+  border: 1px dashed rgba(250, 204, 21, 0.18);
+  background: linear-gradient(180deg, rgba(250, 204, 21, 0.06), rgba(255, 255, 255, 0.02));
+  color: rgba(255, 244, 200, 0.86);
+  text-transform: uppercase;
+  letter-spacing: 0.12em;
+  font-size: 11px;
+}
+
+.emptyBin:hover {
+  transform: translateY(-1px);
+  border-color: rgba(250, 204, 21, 0.4);
+}
+
+.assetCard {
+  display: grid;
+  grid-template-columns: 86px minmax(0, 1fr);
+  gap: 12px;
+  width: 100%;
+  padding: 10px;
+  border-radius: 22px;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.06), rgba(255, 255, 255, 0.03));
+  text-align: left;
+}
+
+.assetCard:hover {
+  transform: translateY(-1px);
+  border-color: rgba(250, 204, 21, 0.24);
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.22);
+}
+
+.assetVisual {
+  position: relative;
+  overflow: hidden;
+  aspect-ratio: 1.5;
+  border-radius: 16px;
+  background:
+    linear-gradient(135deg, color-mix(in srgb, var(--clip-accent) 52%, #111), rgba(255, 255, 255, 0.03)),
+    rgba(255, 255, 255, 0.04);
+}
+
+.assetVisual img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.assetFallbackIcon {
+  width: 100%;
+  height: 100%;
+  display: grid;
+  place-items: center;
+  color: rgba(255, 245, 204, 0.88);
+}
+
+.assetMeta {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  gap: 6px;
+}
+
+.assetName,
+.clipName {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.assetName {
+  font-size: 13px;
+  color: rgba(255, 250, 231, 0.94);
+}
+
+.assetSubline,
+.clipMeta,
+.transportMeta,
+.previewIdle span,
+.trackBadge,
+.rulerTick span {
+  font-size: 11px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: rgba(255, 243, 199, 0.52);
+}
+
+.stage {
+  display: grid;
+  grid-template-rows: minmax(280px, 42%) minmax(0, 1fr);
+  gap: 18px;
+  min-width: 0;
+}
+
+.previewPanel,
+.timelinePanel {
+  border-radius: 30px;
+}
+
+.previewPanel {
+  display: grid;
+  grid-template-rows: minmax(0, 1fr) auto;
+}
+
+.previewFrame {
+  position: relative;
+  overflow: hidden;
+  background:
+    radial-gradient(circle at top, rgba(250, 204, 21, 0.16), transparent 44%),
+    linear-gradient(180deg, rgba(255, 255, 255, 0.03), transparent),
+    #080809;
+}
+
+.previewVideo {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  background: #020203;
+}
+
+.previewIdle {
+  width: 100%;
+  height: 100%;
+  display: grid;
+  place-items: center;
+  gap: 10px;
+  color: rgba(250, 224, 133, 0.9);
+}
+
+.audioPulse {
+  position: absolute;
+  inset: auto 22px 64px auto;
+  display: flex;
+  align-items: flex-end;
+  gap: 5px;
+  pointer-events: none;
+}
+
+.audioPulse span {
+  width: 6px;
+  border-radius: 999px;
+  background: linear-gradient(180deg, rgba(250, 204, 21, 0.94), rgba(250, 204, 21, 0.28));
+  animation: pulse 1s ease-in-out infinite;
+}
+
+.audioPulse span:nth-child(1) {
+  height: 16px;
+}
+
+.audioPulse span:nth-child(2) {
+  height: 32px;
+  animation-delay: 120ms;
+}
+
+.audioPulse span:nth-child(3) {
+  height: 26px;
+  animation-delay: 220ms;
+}
+
+.audioPulse span:nth-child(4) {
+  height: 20px;
+  animation-delay: 320ms;
+}
+
+.previewHud {
+  position: absolute;
+  right: 20px;
+  bottom: 18px;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 12px;
+  border-radius: 18px;
+  border: 1px solid rgba(255, 255, 255, 0.07);
+  background: rgba(9, 9, 10, 0.78);
+  backdrop-filter: blur(16px);
+}
+
+.transportMeta {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.previewStrip {
+  display: flex;
+  gap: 8px;
+  padding: 14px 18px 18px;
+}
+
+.hiddenMediaPool {
+  display: none;
+}
+
+.timelinePanel {
+  display: grid;
+  grid-template-rows: auto minmax(0, 1fr);
+}
+
+.timelineToolbar {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 14px 16px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+}
+
+.toolGroup {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.toolbarButton,
+.exportButton {
+  min-width: 38px;
+  height: 38px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  padding: 0 12px;
+  border-radius: 12px;
+}
+
+.toolbarButtonActive {
+  background: rgba(250, 204, 21, 0.18);
+  color: rgba(255, 250, 232, 0.98);
+  box-shadow: 0 0 0 1px rgba(250, 204, 21, 0.16) inset;
+}
+
+.toolbarButton:disabled,
+.exportButton:disabled,
+.importButton:disabled {
+  opacity: 0.38;
+  pointer-events: none;
+}
+
+.zoomGroup {
+  margin-left: auto;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-width: 210px;
+  padding: 0 12px;
+  border-radius: 16px;
+  background: rgba(255, 255, 255, 0.03);
+  color: rgba(255, 243, 199, 0.78);
+}
+
+.zoomGroup input {
+  width: 100%;
+  accent-color: #facc15;
+}
+
+.timelineSurface {
+  min-height: 0;
+  display: grid;
+  grid-template-columns: 88px minmax(0, 1fr);
+}
+
+.trackSidebar {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 44px 10px 14px 14px;
+  border-right: 1px solid rgba(255, 255, 255, 0.05);
+}
+
+.trackBadge {
+  min-height: 84px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  border-radius: 18px;
+  border: 1px solid rgba(255, 255, 255, 0.07);
+  background: rgba(255, 255, 255, 0.04);
+}
+
+.timelineCanvasWrap {
+  min-width: 0;
+  display: grid;
+  grid-template-rows: 44px minmax(0, 1fr);
+}
+
+.ruler {
+  position: relative;
+  overflow: hidden;
+  cursor: pointer;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+}
+
+.rulerInner {
+  position: relative;
+  height: 100%;
+}
+
+.rulerTick {
+  position: absolute;
+  top: 0;
+  height: 100%;
+  display: flex;
+  align-items: flex-start;
+}
+
+.rulerTick::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  top: 18px;
+  width: 1px;
+  height: calc(100% - 18px);
+  background: rgba(255, 255, 255, 0.08);
+}
+
+.rulerTick span {
+  display: inline-block;
+  padding-top: 8px;
+  padding-left: 6px;
+}
+
+.playhead {
+  position: absolute;
+  inset: 0 auto 0 0;
+  width: 2px;
+  background: rgba(250, 204, 21, 0.96);
+  box-shadow: 0 0 18px rgba(250, 204, 21, 0.42);
+  pointer-events: none;
+}
+
+.playhead span {
+  position: absolute;
+  top: 0;
+  left: 50%;
+  width: 12px;
+  height: 12px;
+  border-radius: 999px;
+  background: #facc15;
+  transform: translate(-50%, 6px);
+}
+
+.trackArea {
+  min-height: 0;
+  overflow: hidden;
+}
+
+.timelineScroller {
+  height: 100%;
+  overflow: auto;
+}
+
+.timelineLanes {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 12px 0 16px;
+}
+
+.trackLane {
+  position: relative;
+  min-height: 84px;
+  overflow: hidden;
+  border-radius: 18px;
+  border: 1px solid rgba(255, 255, 255, 0.05);
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.03), rgba(255, 255, 255, 0.015));
+}
+
+.trackGrid {
+  position: absolute;
+  inset: 0;
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.015), transparent),
+    repeating-linear-gradient(
+      90deg,
+      rgba(250, 204, 21, 0.08) 0,
+      rgba(250, 204, 21, 0.08) 1px,
+      transparent 1px,
+      transparent 60px
+    );
+  pointer-events: none;
+}
+
+.audioLane .trackGrid {
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.015), transparent),
+    repeating-linear-gradient(
+      90deg,
+      rgba(255, 255, 255, 0.06) 0,
+      rgba(255, 255, 255, 0.06) 1px,
+      transparent 1px,
+      transparent 60px
+    );
+}
+
+.clip {
+  position: absolute;
+  top: 10px;
+  bottom: 10px;
+  display: flex;
+  align-items: stretch;
+  border-radius: 18px;
+  cursor: grab;
+  box-shadow: 0 12px 24px rgba(0, 0, 0, 0.28);
+}
+
+.clip:active {
+  cursor: grabbing;
+}
+
+.videoClip {
+  background: linear-gradient(
+    135deg,
+    color-mix(in srgb, var(--clip-accent) 56%, #fef3c7),
+    color-mix(in srgb, var(--clip-accent) 70%, #3f2b00)
+  );
+}
+
+.audioClip {
+  background: linear-gradient(
+    135deg,
+    color-mix(in srgb, var(--clip-accent) 30%, #101114),
+    color-mix(in srgb, var(--clip-accent) 46%, #201600)
+  );
+}
+
+.clipSelected {
+  box-shadow:
+    0 0 0 2px rgba(255, 250, 231, 0.88),
+    0 16px 28px rgba(0, 0, 0, 0.34);
+}
+
+.clipInner {
+  position: relative;
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  justify-content: space-between;
+  min-width: 0;
+  padding: 12px 14px;
+}
+
+.clipHeader {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+  color: rgba(17, 13, 4, 0.9);
+}
+
+.audioClip .clipHeader,
+.audioClip .clipMeta {
+  color: rgba(255, 247, 222, 0.92);
+}
+
+.clipIcon {
+  display: inline-grid;
+  place-items: center;
+  width: 20px;
+  height: 20px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.2);
+}
+
+.clipName {
+  min-width: 0;
+  font-size: 12px;
+  letter-spacing: 0.02em;
+}
+
+.clipMeta {
+  font-size: 10px;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: rgba(17, 13, 4, 0.68);
+}
+
+.trimHandleStart,
+.trimHandleEnd {
+  width: 10px;
+  padding: 0;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.42);
+  cursor: ew-resize;
+}
+
+.trimHandleStart {
+  border-radius: 18px 0 0 18px;
+}
+
+.trimHandleEnd {
+  border-radius: 0 18px 18px 0;
+}
+
+.muteLayer {
+  position: absolute;
+  inset: auto 10px 10px 10px;
+  height: 12px;
+}
+
+.mutedRange,
+.muteDraft {
+  position: absolute;
+  top: 0;
+  height: 100%;
+  border-radius: 999px;
+}
+
+.mutedRange {
+  background: rgba(15, 17, 21, 0.5);
+  border: 1px solid rgba(255, 255, 255, 0.16);
+}
+
+.mutedRange:hover {
+  transform: translateY(-1px);
+  background: rgba(15, 17, 21, 0.62);
+}
+
+.muteDraft {
+  background: rgba(255, 255, 255, 0.22);
+  pointer-events: none;
+}
+
+.errorToast {
+  position: absolute;
+  right: 24px;
+  bottom: 24px;
+  z-index: 50;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  max-width: 420px;
+  padding: 12px 14px;
+  border-radius: 18px;
+  border: 1px solid rgba(255, 255, 255, 0.07);
+  background: rgba(17, 17, 19, 0.92);
+  color: rgba(255, 244, 200, 0.92);
+  box-shadow: 0 18px 50px rgba(0, 0, 0, 0.38);
+}
+
+.errorToast button {
+  width: 28px;
+  height: 28px;
+  display: grid;
+  place-items: center;
+  border-radius: 10px;
+  background: rgba(255, 255, 255, 0.05);
+}
+
+@keyframes pulse {
+  0%,
+  100% {
+    transform: scaleY(0.7);
+    opacity: 0.7;
+  }
+
+  50% {
+    transform: scaleY(1.1);
+    opacity: 1;
+  }
+}
+
+@media (max-width: 1180px) {
+  .shell {
+    grid-template-columns: 1fr;
+    grid-template-rows: 300px minmax(0, 1fr);
+  }
+
+  .stage {
+    grid-template-rows: 300px minmax(0, 1fr);
+  }
+}

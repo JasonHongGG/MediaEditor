@@ -3,12 +3,15 @@
   "identifier": "default",
   "description": "enables the default permissions",
   "windows": [
-    "main"
+    "main",
+    "export"
   ],
   "permissions": [
     "core:default",
+    "core:webview:allow-create-webview-window",
     "dialog:default",
     "dialog:allow-open",
+    "dialog:allow-save",
     "shell:default"
   ]
 }
