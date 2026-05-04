@@ -25,6 +25,14 @@ export interface MediaSource {
   accent: string;
 }
 
+export interface MediaProbeResult {
+  durationMs: number;
+  hasVideo: boolean;
+  hasAudio: boolean;
+  width?: number;
+  height?: number;
+}
+
 export interface TimelineTrack {
   id: string;
   kind: TrackKind;
@@ -51,6 +59,8 @@ export interface MediaEditorState {
   zoom: number;
   isPlaying: boolean;
   activeTool: EditorTool;
+  previewVolume: number;
+  previewMuted: boolean;
 }
 
 export interface PendingExportSession {

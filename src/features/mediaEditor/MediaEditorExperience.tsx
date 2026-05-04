@@ -16,14 +16,12 @@ import { motion, AnimatePresence } from 'framer-motion';
 import {
   Film,
   FolderOpen,
-  Minus,
   MousePointer2,
   Music2,
   Pause,
   Play,
   Plus,
   Scissors,
-  Sparkles,
   Trash2,
   Upload,
   Volume2,
@@ -45,7 +43,7 @@ import {
   findDominantResolution,
   formatCompactDuration,
   formatRulerLabel,
-  formatTimecode,
+  formatTransportTime,
   getTimelineDuration,
   hashAccent,
   isClipMutedAt,
@@ -64,6 +62,7 @@ import {
 import type {
   EditorTool,
   MediaEditorState,
+  MediaProbeResult,
   MediaSource,
   MutedRange,
   PendingExportSession,
@@ -106,6 +105,18 @@ type InteractionState =
       localEndMs: number;
     };
 
+type SourceDragState = {
+  sourceId: string;
+  pointerId: number;
+  startClientX: number;
+  startClientY: number;
+  clientX: number;
+  clientY: number;
+  offsetX: number;
+  offsetY: number;
+  hasMoved: boolean;
+};
+
 type Action =
   | { type: 'add-sources'; sources: MediaSource[] }
   | { type: 'set-selection'; clipIds: string[] }
@@ -121,7 +132,9 @@ type Action =
   | { type: 'set-tool'; tool: EditorTool }
   | { type: 'add-track'; kind: TimelineTrack['kind'] }
   | { type: 'add-muted-range'; clipId: string; startMs: number; endMs: number }
-  | { type: 'remove-muted-range'; clipId: string; rangeId: string };
+  | { type: 'remove-muted-range'; clipId: string; rangeId: string }
+  | { type: 'set-preview-volume'; volume: number }
+  | { type: 'toggle-preview-muted' };
 
 const initialState: MediaEditorState = {
   sources: [],
@@ -132,6 +145,8 @@ const initialState: MediaEditorState = {
   zoom: DEFAULT_ZOOM,
   isPlaying: false,
   activeTool: 'select',
+  previewVolume: 0.85,
+  previewMuted: false,
 };
 
 function reducer(state: MediaEditorState, action: Action): MediaEditorState {
@@ -309,6 +324,22 @@ function reducer(state: MediaEditorState, action: Action): MediaEditorState {
         isPlaying: action.isPlaying,
       };
 
+    case 'set-preview-volume': {
+      const nextVolume = clamp(action.volume, 0, 1);
+
+      return {
+        ...state,
+        previewVolume: nextVolume,
+        previewMuted: nextVolume === 0 ? true : false,
+      };
+    }
+
+    case 'toggle-preview-muted':
+      return {
+        ...state,
+        previewMuted: !state.previewMuted,
+      };
+
     case 'set-zoom':
       return {
         ...state,
@@ -377,71 +408,94 @@ function reducer(state: MediaEditorState, action: Action): MediaEditorState {
   }
 }
 
-async function probeMediaSource(path: string): Promise<MediaSource> {
-  const name = basename(path);
-  const kind = detectMediaType(path) ?? 'video';
-  const url = convertFileSrc(path);
-  const element = document.createElement(kind === 'video' ? 'video' : 'audio');
+function isFulfilled<T>(result: PromiseSettledResult<T>): result is PromiseFulfilledResult<T> {
+  return result.status === 'fulfilled';
+}
 
-  element.preload = 'metadata';
-  element.src = url;
+async function captureVideoThumbnail(url: string, durationMs: number) {
+  return new Promise<string | undefined>((resolve) => {
+    const video = document.createElement('video');
+    let settled = false;
 
-  const metadata = await new Promise<{
-    durationMs: number;
-    width?: number;
-    height?: number;
-    thumbnailUrl?: string;
-  }>((resolve, reject) => {
-    const onError = () => reject(new Error(`Failed to read metadata for ${name}`));
-    const onLoaded = async () => {
-      const durationMs = Number.isFinite(element.duration) ? Math.max(1000, Math.round(element.duration * 1000)) : 1000;
+    const timeout = window.setTimeout(() => {
+      finish(undefined);
+    }, 1500);
 
-      if (kind !== 'video') {
-        resolve({ durationMs });
+    const cleanup = () => {
+      window.clearTimeout(timeout);
+      video.pause();
+      video.removeAttribute('src');
+      video.load();
+    };
+
+    const finish = (value: string | undefined) => {
+      if (settled) {
         return;
       }
 
-      const video = element as HTMLVideoElement;
-      const width = video.videoWidth || 1280;
-      const height = video.videoHeight || 720;
-      let thumbnailUrl: string | undefined;
-
-      try {
-        video.currentTime = Math.min(0.25, Math.max(0.05, video.duration / 10));
-        await new Promise<void>((thumbnailResolve) => {
-          const onSeeked = () => {
-            thumbnailResolve();
-            video.removeEventListener('seeked', onSeeked);
-          };
-
-          video.addEventListener('seeked', onSeeked);
-          if (video.readyState >= 2) {
-            thumbnailResolve();
-            video.removeEventListener('seeked', onSeeked);
-          }
-        });
-
-        const canvas = document.createElement('canvas');
-        canvas.width = 240;
-        canvas.height = 140;
-        const context = canvas.getContext('2d');
-        if (context) {
-          context.drawImage(video, 0, 0, canvas.width, canvas.height);
-          thumbnailUrl = canvas.toDataURL('image/jpeg', 0.72);
-        }
-      } catch {
-        thumbnailUrl = undefined;
-      }
-
-      resolve({ durationMs, width, height, thumbnailUrl });
+      settled = true;
+      cleanup();
+      resolve(value);
     };
 
-    element.addEventListener('loadedmetadata', onLoaded, { once: true });
-    element.addEventListener('error', onError, { once: true });
-  });
+    const drawFrame = () => {
+      try {
+        const width = video.videoWidth || 240;
+        const height = video.videoHeight || 135;
+        const aspectRatio = width / height || 16 / 9;
+        const canvas = document.createElement('canvas');
+        canvas.width = 240;
+        canvas.height = Math.max(135, Math.round(canvas.width / aspectRatio));
 
-  element.removeAttribute('src');
-  element.load();
+        const context = canvas.getContext('2d');
+        if (!context) {
+          finish(undefined);
+          return;
+        }
+
+        context.drawImage(video, 0, 0, canvas.width, canvas.height);
+        finish(canvas.toDataURL('image/jpeg', 0.72));
+      } catch {
+        finish(undefined);
+      }
+    };
+
+    video.addEventListener('error', () => finish(undefined), { once: true });
+    video.addEventListener(
+      'loadeddata',
+      () => {
+        const seekTargetSeconds = Math.min(0.25, Math.max(0.05, durationMs / 10000));
+
+        if (!Number.isFinite(video.duration) || video.duration <= seekTargetSeconds) {
+          drawFrame();
+          return;
+        }
+
+        video.addEventListener('seeked', drawFrame, { once: true });
+
+        try {
+          video.currentTime = seekTargetSeconds;
+        } catch {
+          drawFrame();
+        }
+      },
+      { once: true },
+    );
+
+    video.muted = true;
+    video.playsInline = true;
+    video.preload = 'metadata';
+    video.src = url;
+    video.load();
+  });
+}
+
+async function probeMediaSource(path: string): Promise<MediaSource> {
+  const name = basename(path);
+  const url = convertFileSrc(path);
+  const metadata = await invoke<MediaProbeResult>('probe_media_source', { path });
+  const thumbnailUrl = metadata.hasVideo ? await captureVideoThumbnail(url, metadata.durationMs) : undefined;
+  const kind = metadata.hasVideo ? 'video' : detectMediaType(path) ?? 'audio';
 
   return {
     id: createId('source'),
@@ -450,11 +504,11 @@ async function probeMediaSource(path: string): Promise<MediaSource> {
     url,
     kind,
     durationMs: metadata.durationMs,
-    hasVideo: kind === 'video',
-    hasAudio: true,
+    hasVideo: metadata.hasVideo,
+    hasAudio: metadata.hasAudio,
     width: metadata.width,
     height: metadata.height,
-    thumbnailUrl: metadata.thumbnailUrl,
+    thumbnailUrl,
     accent: hashAccent(name),
   };
 }
@@ -466,16 +520,20 @@ export const MediaEditorExperience: React.FC = () => {
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [interaction, setInteraction] = useState<InteractionState | null>(null);
   const [playAnchor, setPlayAnchor] = useState<{ originPlayheadMs: number; startedAt: number } | null>(null);
+  const [sourceDrag, setSourceDrag] = useState<SourceDragState | null>(null);
 
   const previewVideoRef = useRef<HTMLVideoElement>(null);
   const timelineScrollRef = useRef<HTMLDivElement>(null);
   const trackAreaRef = useRef<HTMLDivElement>(null);
   const audioRefs = useRef(new Map<string, HTMLAudioElement>());
+  const sourceDragRef = useRef<SourceDragState | null>(null);
 
   const tracks = useMemo(() => [...state.tracks].sort(trackSortDescending), [state.tracks]);
   const sourceMap = useMemo(() => new Map(state.sources.map((source) => [source.id, source])), [state.sources]);
   const trackMap = useMemo(() => new Map(state.tracks.map((track) => [track.id, track])), [state.tracks]);
   const timelineDurationMs = useMemo(() => getTimelineDuration(state.clips), [state.clips]);
+  const transportDurationMs = state.clips.length === 0 ? 0 : timelineDurationMs;
+  const transportMaxMs = Math.max(transportDurationMs, 1);
   const timelineWidthPx = useMemo(
     () => Math.max(1200, Math.round(msToPx(timelineDurationMs, state.zoom) + 240)),
     [timelineDurationMs, state.zoom],
@@ -505,6 +563,7 @@ export const MediaEditorExperience: React.FC = () => {
     });
   }, [activeClips, sourceMap, state.playheadMs]);
   const dominantResolution = useMemo(() => findDominantResolution(state.sources), [state.sources]);
+  const hasAnyAudioSource = useMemo(() => state.sources.some((source) => source.hasAudio), [state.sources]);
   const rulerStepMs = useMemo(() => rulerStepForZoom(state.zoom), [state.zoom]);
   const rulerTicks = useMemo(() => {
     const ticks: number[] = [];
@@ -517,9 +576,22 @@ export const MediaEditorExperience: React.FC = () => {
   }, [rulerStepMs, timelineDurationMs]);
 
   const currentVideoSource = activeVideoClip ? sourceMap.get(activeVideoClip.sourceId) ?? null : null;
+  const currentAudioClip = activeAudioClips[0] ?? null;
+  const currentAudioSource = currentAudioClip ? sourceMap.get(currentAudioClip.sourceId) ?? null : null;
+  const currentPreviewSource = currentVideoSource ?? currentAudioSource;
   const currentVideoLocalMs = activeVideoClip
     ? activeVideoClip.inPointMs + (state.playheadMs - activeVideoClip.startMs)
     : 0;
+  const previewTitle = currentPreviewSource?.name
+    ?? (state.clips.length === 0 ? 'Import media to begin' : 'Move the playhead onto a clip');
+  const previewSubtitle = currentVideoSource
+    ? 'Video clip at playhead'
+    : currentAudioSource
+      ? 'Audio clip at playhead'
+      : state.clips.length === 0
+        ? 'Drop a file or open one from the media bin'
+        : 'The playhead is currently over an empty part of the timeline';
+  const draggedSource = sourceDrag ? sourceMap.get(sourceDrag.sourceId) ?? null : null;
 
   const importPaths = useCallback(async (paths: string[]) => {
     const uniquePaths = [...new Set(paths)].filter(isSupportedMediaPath);
@@ -531,9 +603,23 @@ export const MediaEditorExperience: React.FC = () => {
     setErrorMessage(null);
 
     try {
-      const nextSources = await Promise.all(uniquePaths.map((path) => probeMediaSource(path)));
-      dispatch({ type: 'add-sources', sources: nextSources });
-      log.info('Imported media sources', nextSources.map((source) => source.name));
+      const results = await Promise.allSettled(uniquePaths.map((path) => probeMediaSource(path)));
+      const nextSources = results.filter(isFulfilled).map((result) => result.value);
+      const failures = results.filter(
+        (result): result is PromiseRejectedResult => result.status === 'rejected',
+      );
+
+      if (nextSources.length > 0) {
+        dispatch({ type: 'add-sources', sources: nextSources });
+        log.info('Imported media sources', nextSources.map((source) => source.name));
+      }
+
+      if (failures.length > 0) {
+        const reason = failures[0].reason;
+        const detail = reason instanceof Error ? reason.message : 'Unable to import media.';
+        setErrorMessage(nextSources.length > 0 ? `${detail} (${failures.length} failed)` : detail);
+        log.error('Failed to import media', failures.map((result) => result.reason));
+      }
     } catch (error) {
       const message = error instanceof Error ? error.message : 'Unable to import media.';
       setErrorMessage(message);
@@ -609,16 +695,71 @@ export const MediaEditorExperience: React.FC = () => {
     });
   }, [dominantResolution.height, dominantResolution.width, state.clips, state.sources, state.tracks, timelineDurationMs]);
 
+  const setPlaybackPosition = useCallback((nextPlayheadMs: number, preservePlayback = false) => {
+    const boundedPlayheadMs = clamp(nextPlayheadMs, 0, transportDurationMs);
+    dispatch({ type: 'set-playhead', playheadMs: boundedPlayheadMs });
+
+    if (preservePlayback && state.isPlaying) {
+      setPlayAnchor({ originPlayheadMs: boundedPlayheadMs, startedAt: performance.now() });
+      return;
+    }
+
+    dispatch({ type: 'set-playing', isPlaying: false });
+    setPlayAnchor(null);
+  }, [state.isPlaying, transportDurationMs]);
+
   const togglePlay = useCallback(() => {
+    if (transportDurationMs === 0) {
+      return;
+    }
+
     if (state.isPlaying) {
       dispatch({ type: 'set-playing', isPlaying: false });
       setPlayAnchor(null);
       return;
     }
 
-    setPlayAnchor({ originPlayheadMs: state.playheadMs, startedAt: performance.now() });
+    const nextOriginPlayheadMs = state.playheadMs >= transportDurationMs ? 0 : state.playheadMs;
+    if (nextOriginPlayheadMs !== state.playheadMs) {
+      dispatch({ type: 'set-playhead', playheadMs: nextOriginPlayheadMs });
+    }
+
+    setPlayAnchor({ originPlayheadMs: nextOriginPlayheadMs, startedAt: performance.now() });
     dispatch({ type: 'set-playing', isPlaying: true });
-  }, [state.isPlaying, state.playheadMs]);
+  }, [state.isPlaying, state.playheadMs, transportDurationMs]);
+
+  const seekByOneSecond = useCallback((deltaMs: number) => {
+    if (transportDurationMs === 0) {
+      return;
+    }
+
+    setPlaybackPosition(state.playheadMs + deltaMs, state.isPlaying);
+  }, [setPlaybackPosition, state.isPlaying, state.playheadMs, transportDurationMs]);
+
+  const handlePreviewSeekChange = useCallback((event: React.ChangeEvent<HTMLInputElement>) => {
+    setPlaybackPosition(Number(event.target.value));
+  }, [setPlaybackPosition]);
+
+  const handleSourcePointerDown = useCallback((event: React.PointerEvent<HTMLButtonElement>, sourceId: string) => {
+    if (event.button !== 0) {
+      return;
+    }
+
+    const bounds = event.currentTarget.getBoundingClientRect();
+    event.preventDefault();
+
+    setSourceDrag({
+      sourceId,
+      pointerId: event.pointerId,
+      startClientX: event.clientX,
+      startClientY: event.clientY,
+      clientX: event.clientX,
+      clientY: event.clientY,
+      offsetX: event.clientX - bounds.left,
+      offsetY: event.clientY - bounds.top,
+      hasMoved: false,
+    });
+  }, []);
 
   useEffect(() => {
     const currentWindow = getCurrentWindow();
@@ -657,8 +798,8 @@ export const MediaEditorExperience: React.FC = () => {
       const elapsed = timestamp - playAnchor.startedAt;
       const nextPlayhead = playAnchor.originPlayheadMs + elapsed;
 
-      if (nextPlayhead >= timelineDurationMs) {
-        dispatch({ type: 'set-playhead', playheadMs: timelineDurationMs });
+      if (nextPlayhead >= transportDurationMs) {
+        dispatch({ type: 'set-playhead', playheadMs: transportDurationMs });
         dispatch({ type: 'set-playing', isPlaying: false });
         setPlayAnchor(null);
         return;
@@ -674,7 +815,7 @@ export const MediaEditorExperience: React.FC = () => {
     frame = requestAnimationFrame(step);
 
     return () => cancelAnimationFrame(frame);
-  }, [playAnchor, state.isPlaying, timelineDurationMs]);
+  }, [playAnchor, state.isPlaying, transportDurationMs]);
 
   useEffect(() => {
     const handleKeyDown = (event: KeyboardEvent) => {
@@ -749,6 +890,9 @@ export const MediaEditorExperience: React.FC = () => {
       }
 
       const expectedTime = (clip.inPointMs + (state.playheadMs - clip.startMs)) / 1000;
+      element.muted = state.previewMuted;
+      element.volume = state.previewMuted ? 0 : state.previewVolume;
+
       if (Math.abs(element.currentTime - expectedTime) > (state.isPlaying ? 0.18 : 0.04)) {
         element.currentTime = expectedTime;
       }
@@ -759,7 +903,73 @@ export const MediaEditorExperience: React.FC = () => {
         element.pause();
       }
     }
-  }, [activeAudioClips, state.isPlaying, state.playheadMs]);
+  }, [activeAudioClips, state.isPlaying, state.playheadMs, state.previewMuted, state.previewVolume]);
+
+  useEffect(() => {
+    sourceDragRef.current = sourceDrag;
+  }, [sourceDrag]);
+
+  useEffect(() => {
+    if (!sourceDrag) {
+      return undefined;
+    }
+
+    const handlePointerMove = (event: PointerEvent) => {
+      const currentDrag = sourceDragRef.current;
+      if (!currentDrag || currentDrag.pointerId !== event.pointerId) {
+        return;
+      }
+
+      setSourceDrag({
+        ...currentDrag,
+        clientX: event.clientX,
+        clientY: event.clientY,
+        hasMoved: currentDrag.hasMoved
+          || Math.hypot(event.clientX - currentDrag.startClientX, event.clientY - currentDrag.startClientY) > 6,
+      });
+    };
+
+    const handlePointerUp = (event: PointerEvent) => {
+      const currentDrag = sourceDragRef.current;
+      if (!currentDrag || currentDrag.pointerId !== event.pointerId) {
+        return;
+      }
+
+      if (currentDrag.hasMoved && timelineScrollRef.current) {
+        const source = sourceMap.get(currentDrag.sourceId);
+        const laneElement = document
+          .elementFromPoint(event.clientX, event.clientY)
+          ?.closest<HTMLElement>('[data-track-lane-id]');
+        const trackId = laneElement?.dataset.trackLaneId;
+        const track = trackId ? trackMap.get(trackId) : null;
+
+        if (source && laneElement && track && canPlaceSourceOnTrack(source, track.kind)) {
+          const bounds = laneElement.getBoundingClientRect();
+          const localX = event.clientX - bounds.left + timelineScrollRef.current.scrollLeft;
+          const startMs = clamp(pxToMs(localX, state.zoom), 0, timelineDurationMs + 30000);
+          dispatch({ type: 'add-clip', sourceId: source.id, trackId: track.id, startMs });
+        }
+      }
+
+      setSourceDrag(null);
+    };
+
+    const cancelDrag = () => {
+      setSourceDrag(null);
+    };
+
+    window.addEventListener('pointermove', handlePointerMove);
+    window.addEventListener('pointerup', handlePointerUp);
+    window.addEventListener('pointercancel', handlePointerUp);
+    window.addEventListener('blur', cancelDrag);
+
+    return () => {
+      window.removeEventListener('pointermove', handlePointerMove);
+      window.removeEventListener('pointerup', handlePointerUp);
+      window.removeEventListener('pointercancel', handlePointerUp);
+      window.removeEventListener('blur', cancelDrag);
+    };
+  }, [sourceDrag?.pointerId, sourceMap, state.zoom, timelineDurationMs, trackMap]);
 
   useEffect(() => {
     if (!interaction) {
@@ -888,10 +1098,8 @@ export const MediaEditorExperience: React.FC = () => {
 
     const bounds = event.currentTarget.getBoundingClientRect();
     const pixel = event.clientX - bounds.left + timelineScrollRef.current.scrollLeft;
-    dispatch({ type: 'set-playhead', playheadMs: clamp(pxToMs(pixel, state.zoom), 0, timelineDurationMs) });
-    dispatch({ type: 'set-playing', isPlaying: false });
-    setPlayAnchor(null);
-  }, [state.zoom, timelineDurationMs]);
+    setPlaybackPosition(clamp(pxToMs(pixel, state.zoom), 0, timelineDurationMs));
+  }, [setPlaybackPosition, state.zoom, timelineDurationMs]);
 
   const handleClipPointerDown = useCallback((event: React.PointerEvent<HTMLDivElement>, clip: TimelineClip) => {
     event.stopPropagation();
@@ -941,25 +1149,6 @@ export const MediaEditorExperience: React.FC = () => {
     });
   }, []);
 
-  const handleTrackDrop = useCallback((event: React.DragEvent<HTMLDivElement>, trackId: string) => {
-    event.preventDefault();
-    const sourceId = event.dataTransfer.getData('application/x-media-source');
-    if (!sourceId || !timelineScrollRef.current) {
-      return;
-    }
-
-    const track = trackMap.get(trackId);
-    const source = sourceMap.get(sourceId);
-    if (!track || !source || !canPlaceSourceOnTrack(source, track.kind)) {
-      return;
-    }
-
-    const bounds = event.currentTarget.getBoundingClientRect();
-    const localX = event.clientX - bounds.left + timelineScrollRef.current.scrollLeft;
-    const startMs = clamp(pxToMs(localX, state.zoom), 0, timelineDurationMs + 30000);
-    dispatch({ type: 'add-clip', sourceId, trackId, startMs });
-  }, [sourceMap, state.zoom, timelineDurationMs, trackMap]);
-
   const clipsByTrack = useMemo(() => {
     const buckets = new Map<string, Array<{ clip: TimelineClip; leftPx: number; widthPx: number; selected: boolean }>>();
 
@@ -999,6 +1188,25 @@ export const MediaEditorExperience: React.FC = () => {
         )}
       </AnimatePresence>
 
+      {sourceDrag?.hasMoved && draggedSource && (
+        <div
+          className={styles.sourceDragGhost}
+          style={{
+            left: `${sourceDrag.clientX - sourceDrag.offsetX}px`,
+            top: `${sourceDrag.clientY - sourceDrag.offsetY}px`,
+            '--clip-accent': draggedSource.accent,
+          } as React.CSSProperties}
+        >
+          <div className={styles.sourceDragVisual}>
+            {draggedSource.kind === 'video' ? <Film size={18} /> : <Music2 size={18} />}
+          </div>
+          <div className={styles.sourceDragMeta}>
+            <span className={styles.assetName}>{draggedSource.name}</span>
+            <span className={styles.assetSubline}>{formatCompactDuration(draggedSource.durationMs)}</span>
+          </div>
+        </div>
+      )}
+
       <aside className={styles.sidebar}>
         <div className={styles.panelGlow} />
         <div className={styles.sidebarContent}>
@@ -1021,16 +1229,12 @@ export const MediaEditorExperience: React.FC = () => {
                 <motion.button
                   key={source.id}
                   type="button"
-                  draggable
                   initial={{ opacity: 0, y: 12 }}
                   animate={{ opacity: 1, y: 0 }}
                   exit={{ opacity: 0, y: -8 }}
-                  className={styles.assetCard}
+                  className={`${styles.assetCard} ${sourceDrag?.sourceId === source.id ? styles.assetCardDragging : ''}`}
                   style={{ '--clip-accent': source.accent } as React.CSSProperties}
-                  onDragStartCapture={(event: React.DragEvent<HTMLButtonElement>) => {
-                    event.dataTransfer.effectAllowed = 'copy';
-                    event.dataTransfer.setData('application/x-media-source', source.id);
-                  }}
+                  onPointerDown={(event) => handleSourcePointerDown(event, source.id)}
                 >
                   <div className={styles.assetVisual}>
                     {source.thumbnailUrl ? (
@@ -1058,42 +1262,63 @@ export const MediaEditorExperience: React.FC = () => {
             {currentVideoSource ? (
               <video ref={previewVideoRef} className={styles.previewVideo} muted playsInline preload="auto" />
             ) : (
-              <div className={styles.previewIdle}>
-                <Sparkles size={22} />
-                <span>{activeAudioClips.length > 0 ? 'audio active' : 'preview'}</span>
+              <div className={styles.previewPlaceholder}>
+                <div className={styles.previewPlaceholderIcon}>
+                  {currentAudioSource ? <Music2 size={24} /> : <Film size={24} />}
+                </div>
+                <div className={styles.previewPlaceholderText}>
+                  <strong>{previewTitle}</strong>
+                  <span>{previewSubtitle}</span>
+                </div>
               </div>
             )}
-
-            {activeAudioClips.length > 0 && !currentVideoSource && (
-              <div className={styles.audioPulse}>
-                <span />
-                <span />
-                <span />
-                <span />
-              </div>
-            )}
-
-            <div className={styles.previewHud}>
-              <button type="button" className={styles.transportButton} onClick={togglePlay}>
-                {state.isPlaying ? <Pause size={16} /> : <Play size={16} />}
-              </button>
-              <div className={styles.transportMeta}>
-                <span>{formatTimecode(state.playheadMs)}</span>
-                <span>{formatTimecode(timelineDurationMs)}</span>
-              </div>
-            </div>
           </div>
 
-          <div className={styles.previewStrip}>
-            <button type="button" className={styles.iconChip} onClick={() => dispatch({ type: 'set-playhead', playheadMs: 0 })}>
-              <Minus size={15} />
-            </button>
-            <button type="button" className={styles.iconChip} onClick={togglePlay}>
-              {state.isPlaying ? <Pause size={15} /> : <Play size={15} />}
-            </button>
-            <button type="button" className={styles.iconChip} onClick={openExportWindow} disabled={state.clips.length === 0}>
-              <Upload size={15} />
-            </button>
+          <div className={styles.transportBar}>
+            <div className={styles.transportControls}>
+              <button type="button" className={styles.transportButton} onClick={() => seekByOneSecond(-1000)} disabled={transportDurationMs === 0}>
+                -1s
+              </button>
+              <button type="button" className={styles.transportPrimaryButton} onClick={togglePlay} disabled={transportDurationMs === 0}>
+                {state.isPlaying ? <Pause size={16} /> : <Play size={16} />}
+              </button>
+              <button type="button" className={styles.transportButton} onClick={() => seekByOneSecond(1000)} disabled={transportDurationMs === 0}>
+                +1s
+              </button>
+            </div>
+
+            <div className={styles.transportSeekGroup}>
+              <div className={styles.transportMetaRow}>
+                <span className={styles.transportTitle}>{previewTitle}</span>
+                <span className={styles.transportTime}>
+                  {formatTransportTime(Math.min(state.playheadMs, transportDurationMs))} / {formatTransportTime(transportDurationMs)}
+                </span>
+              </div>
+              <input
+                className={styles.transportRange}
+                type="range"
+                min={0}
+                max={transportMaxMs}
+                value={transportDurationMs === 0 ? 0 : Math.min(state.playheadMs, transportDurationMs)}
+                onChange={handlePreviewSeekChange}
+                disabled={transportDurationMs === 0}
+              />
+            </div>
+
+            <div className={styles.transportVolume}>
+              <button type="button" className={styles.transportButton} onClick={() => dispatch({ type: 'toggle-preview-muted' })} disabled={!hasAnyAudioSource}>
+                {state.previewMuted || state.previewVolume === 0 ? <VolumeX size={16} /> : <Volume2 size={16} />}
+              </button>
+              <input
+                className={styles.volumeRange}
+                type="range"
+                min={0}
+                max={100}
+                value={Math.round(state.previewVolume * 100)}
+                onChange={(event) => dispatch({ type: 'set-preview-volume', volume: Number(event.target.value) / 100 })}
+                disabled={!hasAnyAudioSource}
+              />
+            </div>
           </div>
 
           <div className={styles.hiddenMediaPool}>
@@ -1187,7 +1412,12 @@ export const MediaEditorExperience: React.FC = () => {
                 <div className={styles.timelineScroller} ref={timelineScrollRef}>
                   <div className={styles.timelineLanes} style={{ width: `${timelineWidthPx}px` }}>
                     {tracks.map((track) => (
-                      <div key={track.id} className={`${styles.trackLane} ${track.kind === 'audio' ? styles.audioLane : ''}`} onDragOver={(event) => event.preventDefault()} onDrop={(event) => handleTrackDrop(event, track.id)} onPointerDown={handleTimelineSeek}>
+                      <div
+                        key={track.id}
+                        data-track-lane-id={track.id}
+                        className={`${styles.trackLane} ${track.kind === 'audio' ? styles.audioLane : ''} ${draggedSource && sourceDrag?.hasMoved && canPlaceSourceOnTrack(draggedSource, track.kind) ? styles.trackLaneDropTarget : ''}`}
+                        onPointerDown={handleTimelineSeek}
+                      >
                         <div className={styles.trackGrid} />
                         {clipsByTrack.get(track.id)?.map(({ clip, leftPx, widthPx, selected }) => {
                           const source = sourceMap.get(clip.sourceId);

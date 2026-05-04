@@ -62,7 +62,6 @@
 
 .importButton,
 .iconChip,
-.transportButton,
 .exportButton {
   width: 42px;
   height: 42px;
@@ -74,6 +73,7 @@
 .importButton,
 .iconChip,
 .transportButton,
+.transportPrimaryButton,
 .toolbarButton,
 .exportButton,
 .emptyBin,
@@ -90,6 +90,7 @@
 .importButton,
 .iconChip,
 .transportButton,
+.transportPrimaryButton,
 .toolbarButton,
 .exportButton {
   color: rgba(255, 247, 217, 0.9);
@@ -99,6 +100,7 @@
 .importButton:hover,
 .iconChip:hover,
 .transportButton:hover,
+.transportPrimaryButton:hover,
 .toolbarButton:hover,
 .exportButton:hover {
   transform: translateY(-1px);
@@ -144,12 +146,18 @@
   border: 1px solid rgba(255, 255, 255, 0.08);
   background: linear-gradient(180deg, rgba(255, 255, 255, 0.06), rgba(255, 255, 255, 0.03));
   text-align: left;
+  cursor: grab;
+  user-select: none;
 }
 
 .assetCard:hover {
   transform: translateY(-1px);
   border-color: rgba(250, 204, 21, 0.24);
   box-shadow: 0 10px 30px rgba(0, 0, 0, 0.22);
+}
+
+.assetCardDragging {
+  opacity: 0.4;
 }
 
 .assetVisual {
@@ -177,6 +185,42 @@
 }
 
 .assetMeta {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  gap: 6px;
+}
+
+.sourceDragGhost {
+  position: fixed;
+  z-index: 45;
+  display: grid;
+  grid-template-columns: 46px minmax(0, 1fr);
+  gap: 12px;
+  width: 228px;
+  padding: 12px;
+  border-radius: 20px;
+  border: 1px solid rgba(250, 204, 21, 0.24);
+  background: linear-gradient(180deg, rgba(19, 19, 22, 0.96), rgba(8, 8, 10, 0.98));
+  box-shadow: 0 18px 42px rgba(0, 0, 0, 0.34);
+  pointer-events: none;
+  backdrop-filter: blur(18px);
+}
+
+.sourceDragVisual {
+  width: 46px;
+  height: 46px;
+  display: grid;
+  place-items: center;
+  border-radius: 14px;
+  background:
+    linear-gradient(135deg, color-mix(in srgb, var(--clip-accent) 52%, #111), rgba(255, 255, 255, 0.03)),
+    rgba(255, 255, 255, 0.04);
+  color: rgba(255, 245, 204, 0.92);
+}
+
+.sourceDragMeta {
   min-width: 0;
   display: flex;
   flex-direction: column;
@@ -228,6 +272,9 @@
 .previewFrame {
   position: relative;
   overflow: hidden;
+  display: grid;
+  place-items: center;
+  min-height: 0;
   background:
     radial-gradient(circle at top, rgba(250, 204, 21, 0.16), transparent 44%),
     linear-gradient(180deg, rgba(255, 255, 255, 0.03), transparent),
@@ -241,74 +288,130 @@
   background: #020203;
 }
 
-.previewIdle {
+.previewPlaceholder {
   width: 100%;
   height: 100%;
   display: grid;
   place-items: center;
-  gap: 10px;
+  gap: 16px;
+  padding: 24px;
+  text-align: center;
   color: rgba(250, 224, 133, 0.9);
 }
 
-.audioPulse {
-  position: absolute;
-  inset: auto 22px 64px auto;
+.previewPlaceholderIcon {
+  width: 64px;
+  height: 64px;
+  display: grid;
+  place-items: center;
+  border-radius: 20px;
+  background: rgba(250, 204, 21, 0.12);
+  color: rgba(255, 245, 204, 0.94);
+  box-shadow: 0 14px 36px rgba(0, 0, 0, 0.24);
+}
+
+.previewPlaceholderText {
   display: flex;
-  align-items: flex-end;
-  gap: 5px;
-  pointer-events: none;
+  flex-direction: column;
+  gap: 8px;
+  max-width: 420px;
 }
 
-.audioPulse span {
-  width: 6px;
-  border-radius: 999px;
-  background: linear-gradient(180deg, rgba(250, 204, 21, 0.94), rgba(250, 204, 21, 0.28));
-  animation: pulse 1s ease-in-out infinite;
+.previewPlaceholderText strong {
+  font-size: 16px;
+  font-weight: 600;
+  color: rgba(255, 250, 231, 0.96);
 }
 
-.audioPulse span:nth-child(1) {
-  height: 16px;
+.previewPlaceholderText span {
+  font-size: 12px;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: rgba(255, 243, 199, 0.58);
 }
 
-.audioPulse span:nth-child(2) {
-  height: 32px;
-  animation-delay: 120ms;
-}
-
-.audioPulse span:nth-child(3) {
-  height: 26px;
-  animation-delay: 220ms;
-}
-
-.audioPulse span:nth-child(4) {
-  height: 20px;
-  animation-delay: 320ms;
-}
-
-.previewHud {
-  position: absolute;
-  right: 20px;
-  bottom: 18px;
-  display: flex;
+.transportBar {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  gap: 14px;
   align-items: center;
-  gap: 12px;
-  padding: 10px 12px;
-  border-radius: 18px;
-  border: 1px solid rgba(255, 255, 255, 0.07);
-  background: rgba(9, 9, 10, 0.78);
-  backdrop-filter: blur(16px);
+  padding: 16px 18px 18px;
+  border-top: 1px solid rgba(255, 255, 255, 0.05);
+  background: rgba(8, 8, 9, 0.92);
 }
 
-.transportMeta {
+.transportControls {
   display: flex;
   align-items: center;
   gap: 10px;
 }
 
-.previewStrip {
+.transportButton,
+.transportPrimaryButton {
+  min-width: 56px;
+  height: 42px;
   display: flex;
-  gap: 8px;
-  padding: 14px 18px 18px;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  padding: 0 14px;
+  border-radius: 14px;
+  font-size: 12px;
+  letter-spacing: 0.04em;
+}
+
+.transportPrimaryButton {
+  width: 46px;
+  padding: 0;
+  background: rgba(250, 204, 21, 0.16);
+}
+
+.transportSeekGroup {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.transportMetaRow {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 14px;
+}
+
+.transportTitle {
+  min-width: 0;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  font-size: 13px;
+  color: rgba(255, 250, 231, 0.94);
+}
+
+.transportTime {
+  flex-shrink: 0;
+  font-size: 11px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: rgba(255, 243, 199, 0.52);
+}
+
+.transportRange,
+.volumeRange {
+  width: 100%;
+  accent-color: #facc15;
+}
+
+.transportVolume {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-width: 160px;
+}
+
+.volumeRange {
+  width: 120px;
 }
 
 .hiddenMediaPool {
@@ -353,6 +456,8 @@
 }
 
 .toolbarButton:disabled,
+.transportButton:disabled,
+.transportPrimaryButton:disabled,
 .exportButton:disabled,
 .importButton:disabled {
   opacity: 0.38;
@@ -489,6 +594,12 @@
   border-radius: 18px;
   border: 1px solid rgba(255, 255, 255, 0.05);
   background: linear-gradient(180deg, rgba(255, 255, 255, 0.03), rgba(255, 255, 255, 0.015));
+}
+
+.trackLaneDropTarget {
+  border-color: rgba(250, 204, 21, 0.26);
+  box-shadow: 0 0 0 1px rgba(250, 204, 21, 0.14) inset;
+  background: linear-gradient(180deg, rgba(250, 204, 21, 0.06), rgba(255, 255, 255, 0.02));
 }
 
 .trackGrid {
@@ -672,19 +783,6 @@
   background: rgba(255, 255, 255, 0.05);
 }
 
-@keyframes pulse {
-  0%,
-  100% {
-    transform: scaleY(0.7);
-    opacity: 0.7;
-  }
-
-  50% {
-    transform: scaleY(1.1);
-    opacity: 1;
-  }
-}
-
 @media (max-width: 1180px) {
   .shell {
     grid-template-columns: 1fr;
@@ -693,5 +791,17 @@
 
   .stage {
     grid-template-rows: 300px minmax(0, 1fr);
+  }
+
+  .transportBar {
+    grid-template-columns: 1fr;
+  }
+
+  .transportVolume {
+    min-width: 0;
+  }
+
+  .volumeRange {
+    width: 100%;
   }
 }
