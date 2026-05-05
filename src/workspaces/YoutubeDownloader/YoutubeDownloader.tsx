@@ -126,9 +126,7 @@ export const YoutubeDownloader: React.FC = () => {
       transition={{ ease: "easeOut", duration: 0.2 }}
       className={styles.container}
     >
-      <motion.div 
-        layout
-        transition={{ ease: "easeInOut", duration: 0.4 }}
+      <div 
         className={styles.searchSection}
         data-centered={!hasSearched}
       >
@@ -150,7 +148,7 @@ export const YoutubeDownloader: React.FC = () => {
           )}
         </AnimatePresence>
 
-        <motion.div layout className={styles.inputWrapper}>
+        <div className={styles.inputWrapper}>
           <Search className={styles.inputIcon} size={18} />
           <input 
             type="text" 
@@ -175,8 +173,8 @@ export const YoutubeDownloader: React.FC = () => {
               <ChevronRight size={18} />
             </button>
           )}
-        </motion.div>
-      </motion.div>
+        </div>
+      </div>
 
       <AnimatePresence mode="wait">
         {error && (

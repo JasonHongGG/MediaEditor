@@ -209,7 +209,13 @@ async fn get_youtube_info(url: String) -> Result<VideoInfo, String> {
     let ytdlp = find_bundled("yt-dlp")?;
 
     let output = Command::new(&ytdlp)
-        .args(["--dump-json", "--no-playlist", &url])
+        .args([
+            "--dump-json",
+            "--no-playlist",
+            "--extractor-args", "youtube:player_client=web_creator,mweb",
+            "--user-agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36",
+            &url,
+        ])
         .output()
         .map_err(|error| format!("Failed to execute yt-dlp: {}", error))?;
 
@@ -252,20 +258,28 @@ async fn download_youtube(
         "--no-playlist".to_string(),
         "--newline".to_string(),
         "--progress".to_string(),
+        "--extractor-args".to_string(),
+        "youtube:player_client=web_creator,mweb".to_string(),
+        "--user-agent".to_string(),
+        "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36".to_string(),
         "--progress-template".to_string(),
         "[progress] %(progress._percent_str)s of %(progress._total_bytes_str)s at %(progress._speed_str)s ETA %(progress._eta_str)s".to_string(),
         "-o".to_string(),
         output_template,
     ];
 
-    let is_video = format == "mp4" || format == "mkv";
+    let is_video = format == "mp4" || format == "mkv" || format == "webm";
     if is_video {
         args.push("-f".to_string());
-        let height = match quality.as_str() {
+        // Strip parenthetical labels like "2160p (4K)" -> "2160p"
+        let quality_clean = quality.split_whitespace().next().unwrap_or(&quality);
+        let height = match quality_clean {
             "2160p" => 2160,
             "1440p" => 1440,
             "1080p" => 1080,
             "720p" => 720,
+            "480p" => 480,
+            "360p" => 360,
             _ => 1080,
         };
         args.push(format!("bestvideo[height<={}]+bestaudio/best[height<={}]", height, height));
@@ -277,8 +291,10 @@ async fn download_youtube(
         args.push(format.clone());
         let abr = match quality.as_str() {
             "320kbps" => "320",
+            "256kbps" => "256",
             "192kbps" => "192",
             "128kbps" => "128",
+            "64kbps" => "64",
             _ => "192",
         };
         args.push("--audio-quality".to_string());

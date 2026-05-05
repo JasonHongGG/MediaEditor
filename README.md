@@ -71,3 +71,32 @@ export default defineConfig([
   },
 ])
 ```
+
+## External Dependencies
+
+This project relies on several external binaries for media processing. While some may be bundled, others must be present in the system PATH.
+
+### Essential Components
+
+1.  **yt-dlp**: Used for fetching video metadata and downloading.
+2.  **ffmpeg / ffprobe**: Required for probing media files and merging video/audio streams during download.
+3.  **Deno**: **CRITICAL**. A JavaScript runtime is required for `yt-dlp` to solve YouTube signature challenges. Without this, you will likely encounter `Signature solving failed` or `403 Forbidden` errors.
+    *   **Installation (Windows)**: `winget install DenoLand.Deno`
+
+---
+
+## Troubleshooting (YouTube Downloader)
+
+### 1. HTTP Error 429: Too Many Requests / Sign-in Requirement
+YouTube frequently blocks automated requests. To bypass this, the app uses:
+*   **Extractor Args**: `--extractor-args "youtube:player_client=web_creator,mweb"` to use more permissive API endpoints.
+*   **User-Agent**: A modern Chrome user-agent string to mimic browser behavior.
+
+### 2. Signature solving failed
+Ensure **Deno** is installed and accessible in your terminal. You can verify this by running `deno --version`. If `yt-dlp` cannot find a JS runtime, it cannot decrypt YouTube's playback tokens.
+
+### 3. Cookies (Optional)
+If bot detection persists, you can manually export cookies from your browser to a `.txt` file and pass them to `yt-dlp`, but the current `extractor-args` strategy is generally more stable for general use without requiring local browser file access.
+
+### 4. Failed to decrypt with DPAPI (Windows)
+Avoid using `--cookies-from-browser` if the browser (Chrome/Edge) is currently open, as Windows locks the database. The current implementation avoids this by using server-side client strategies.
