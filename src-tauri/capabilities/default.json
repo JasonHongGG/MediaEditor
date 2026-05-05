@@ -9,6 +9,8 @@
   "permissions": [
     "core:default",
     "core:webview:allow-create-webview-window",
+    "core:window:allow-minimize",
+    "core:window:allow-close",
     "dialog:default",
     "dialog:allow-open",
     "dialog:allow-save",

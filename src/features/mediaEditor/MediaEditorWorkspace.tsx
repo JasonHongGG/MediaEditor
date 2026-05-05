@@ -921,22 +921,26 @@ export const MediaEditorWorkspace: React.FC = () => {
         </div>
       </section>
 
-      {(errorMessage || statusMessage || isImporting || isProjectLoading || isExternalDropActive) && (
+      {errorMessage && (
         <section className={styles.noticeBar}>
-          {errorMessage && (
-            <div className={`${styles.notice} ${styles.noticeError}`}>
-              <AlertCircle size={15} />
-              <span>{errorMessage}</span>
-            </div>
-          )}
-          {!errorMessage && statusMessage && <div className={styles.notice}>{statusMessage}</div>}
-          {isExternalDropActive && <div className={styles.notice}>Drop media files anywhere to import them.</div>}
-          {(isImporting || isProjectLoading) && <div className={styles.notice}>Working…</div>}
+          <div className={`${styles.notice} ${styles.noticeError}`}>
+            <AlertCircle size={15} />
+            <span>{errorMessage}</span>
+          </div>
         </section>
       )}
 
       <div className={styles.content}>
         <aside className={styles.binPanel}>
+          {isExternalDropActive && (
+            <div className={styles.dropOverlay}>
+              <div className={styles.dropOverlayContent}>
+                <Import size={32} />
+                <strong>Drop Media Here</strong>
+                <span>Release to import files into the project</span>
+              </div>
+            </div>
+          )}
           <div className={styles.panelHeader}>
             <h2>Media Pool</h2>
             <span className={styles.badge}>{state.assets.length}</span>

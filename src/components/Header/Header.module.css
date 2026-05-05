@@ -104,21 +104,25 @@
 
 /* Window control buttons */
 .controlBtn {
-  width: 36px;
-  height: 100%;
+  width: 24px;
+  height: 24px;
+  border-radius: var(--radius-sm);
   display: flex;
   align-items: center;
   justify-content: center;
   color: var(--text-muted);
   transition: all 0.15s ease;
+  background: transparent;
+  border: 1px solid transparent;
 }
 
 .controlBtn:hover {
   background: var(--bg-surface-elevated);
   color: var(--text-primary);
+  border-color: var(--border-subtle);
 }
 
 .closeBtn:hover {
-  background: #e11d48;
-  color: white;
+  background: rgba(225, 29, 72, 0.1);
+  color: #e11d48;
 }
