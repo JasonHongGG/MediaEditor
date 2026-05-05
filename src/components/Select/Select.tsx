@@ -38,7 +38,7 @@ export const Select: React.FC<SelectProps> = ({ options, value, onChange, placeh
     <div className={`${styles.container} ${disabled ? styles.disabled : ''}`} ref={containerRef}>
       <button
         type="button"
-        className={styles.trigger}
+        className={`${styles.trigger} ${isOpen ? styles.open : ''}`}
         onClick={() => !disabled && setIsOpen(!isOpen)}
         disabled={disabled}
       >

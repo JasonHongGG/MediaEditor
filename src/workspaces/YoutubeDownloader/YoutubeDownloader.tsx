@@ -5,6 +5,7 @@ import { invoke } from '@tauri-apps/api/core';
 import { listen, type UnlistenFn } from '@tauri-apps/api/event';
 import { open } from '@tauri-apps/plugin-dialog';
 import { createLogger } from '../../utils/logger';
+import { Select } from '../../components/Select/Select';
 import styles from './YoutubeDownloader.module.css';
 
 const log = createLogger('YoutubeDownloader');
@@ -110,10 +111,10 @@ export const YoutubeDownloader: React.FC = () => {
     return `${m}:${s.toString().padStart(2, '0')}`;
   };
 
-  const videoFormats = ['mp4', 'mkv'];
-  const audioFormats = ['mp3', 'm4a', 'wav'];
-  const videoQualities = ['2160p', '1440p', '1080p', '720p'];
-  const audioQualities = ['320kbps', '192kbps', '128kbps'];
+  const videoFormats = ['mp4', 'mkv', 'webm'];
+  const audioFormats = ['mp3', 'm4a', 'wav', 'flac'];
+  const videoQualities = ['2160p (4K)', '1440p (2K)', '1080p', '720p', '480p', '360p'];
+  const audioQualities = ['320kbps', '256kbps', '192kbps', '128kbps', '64kbps'];
 
   const hasSearched = info !== null || isAnalyzing || error !== null;
 
@@ -131,6 +132,24 @@ export const YoutubeDownloader: React.FC = () => {
         className={styles.searchSection}
         data-centered={!hasSearched}
       >
+        <AnimatePresence>
+          {!hasSearched && (
+            <motion.div 
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.95, filter: 'blur(4px)' }}
+              transition={{ duration: 0.3 }}
+              className={styles.heroHeader}
+            >
+              <div className={styles.heroIconWrapper}>
+                <MonitorPlay className={styles.heroIcon} size={42} strokeWidth={1.5} />
+                <div className={styles.heroIconGlow} />
+              </div>
+              <h1 className={styles.heroTitle}>Media Downloader</h1>
+            </motion.div>
+          )}
+        </AnimatePresence>
+
         <motion.div layout className={styles.inputWrapper}>
           <Search className={styles.inputIcon} size={18} />
           <input 
@@ -209,32 +228,20 @@ export const YoutubeDownloader: React.FC = () => {
                 <div className={styles.settingsGrid}>
                   <div className={styles.settingGroup}>
                     <span className={styles.settingLabel}>Format</span>
-                    <div className={styles.pillGrid}>
-                      {(mode === 'video' ? videoFormats : audioFormats).map(f => (
-                        <button 
-                          key={f}
-                          className={`${styles.pillBtn} ${format === f ? styles.activePill : ''}`}
-                          onClick={() => setFormat(f)}
-                        >
-                          {f.toUpperCase()}
-                        </button>
-                      ))}
-                    </div>
+                    <Select 
+                      value={format}
+                      onChange={(val) => setFormat(val)}
+                      options={(mode === 'video' ? videoFormats : audioFormats).map(f => ({ label: f.toUpperCase(), value: f }))}
+                    />
                   </div>
                   
                   <div className={styles.settingGroup}>
                     <span className={styles.settingLabel}>Quality</span>
-                    <div className={styles.pillGrid}>
-                      {(mode === 'video' ? videoQualities : audioQualities).map(q => (
-                        <button 
-                          key={q}
-                          className={`${styles.pillBtn} ${quality === q ? styles.activePill : ''}`}
-                          onClick={() => setQuality(q)}
-                        >
-                          {q}
-                        </button>
-                      ))}
-                    </div>
+                    <Select 
+                      value={quality}
+                      onChange={(val) => setQuality(val)}
+                      options={(mode === 'video' ? videoQualities : audioQualities).map(q => ({ label: q, value: q }))}
+                    />
                   </div>
                 </div>
 

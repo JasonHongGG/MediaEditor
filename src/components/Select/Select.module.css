@@ -1,6 +1,6 @@
 .container {
   position: relative;
-  min-width: 140px;
+  width: 100%;
 }
 
 .disabled {
@@ -10,22 +10,29 @@
 
 .trigger {
   width: 100%;
-  height: 36px;
+  height: 44px;
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 0 12px;
-  background: var(--bg-surface-elevated);
-  border: 1px solid var(--border-light);
+  padding: 0 16px;
+  background: rgba(255, 255, 255, 0.02);
+  border: 1px solid var(--border-strong);
   border-radius: var(--radius-md);
   color: var(--text-primary);
   font-size: 14px;
-  transition: border-color 0.2s, background 0.2s;
+  font-weight: 500;
+  transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+  cursor: pointer;
 }
 
 .trigger:hover {
   background: rgba(255, 255, 255, 0.05);
-  border-color: var(--border-strong);
+  border-color: var(--text-secondary);
+}
+
+.trigger.open {
+  border-color: var(--accent-primary);
+  box-shadow: 0 0 0 2px rgba(212, 175, 55, 0.2);
 }
 
 .placeholder {
@@ -34,22 +41,23 @@
 
 .dropdown {
   position: absolute;
-  top: calc(100% + 4px);
+  top: calc(100% + 8px);
   left: 0;
   width: 100%;
   background: var(--bg-surface-elevated);
-  border: 1px solid var(--border-light);
+  border: 1px solid var(--border-strong);
   border-radius: var(--radius-md);
-  box-shadow: var(--shadow-lg);
+  box-shadow: 0 12px 32px rgba(0, 0, 0, 0.5);
   z-index: 100;
   overflow: hidden;
   display: flex;
   flex-direction: column;
+  padding: 4px;
 }
 
 .option {
   width: 100%;
-  padding: 8px 12px;
+  padding: 10px 12px;
   text-align: left;
   background: transparent;
   color: var(--text-secondary);
@@ -57,7 +65,10 @@
   display: flex;
   align-items: center;
   justify-content: space-between;
-  transition: background 0.2s, color 0.2s;
+  transition: all 0.2s;
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  border: none;
 }
 
 .option:hover {
@@ -67,7 +78,8 @@
 
 .option.selected {
   color: var(--accent-primary);
-  background: rgba(250, 204, 21, 0.1);
+  background: rgba(212, 175, 55, 0.1);
+  font-weight: 600;
 }
 
 .checkIcon {
