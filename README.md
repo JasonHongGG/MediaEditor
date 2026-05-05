@@ -80,6 +80,7 @@ This project relies on several external binaries for media processing. While som
 
 1.  **yt-dlp**: Used for fetching video metadata and downloading.
 2.  **ffmpeg / ffprobe**: Required for probing media files and merging video/audio streams during download.
+    *   **Installation (Windows)**: `winget install Gyan.FFmpeg`
 3.  **Deno**: **CRITICAL**. A JavaScript runtime is required for `yt-dlp` to solve YouTube signature challenges. Without this, you will likely encounter `Signature solving failed` or `403 Forbidden` errors.
     *   **Installation (Windows)**: `winget install DenoLand.Deno`
 
@@ -87,16 +88,19 @@ This project relies on several external binaries for media processing. While som
 
 ## Troubleshooting (YouTube Downloader)
 
-### 1. HTTP Error 429: Too Many Requests / Sign-in Requirement
-YouTube frequently blocks automated requests. To bypass this, the app uses:
-*   **Extractor Args**: `--extractor-args "youtube:player_client=web_creator,mweb"` to use more permissive API endpoints.
-*   **User-Agent**: A modern Chrome user-agent string to mimic browser behavior.
+### 1. yt-dlp version: Use Nightly
+The **stable** version of yt-dlp (e.g. `2026.03.17`) cannot access most YouTube formats due to PO Token requirements. The **nightly** build includes improved client strategies (e.g. `android_vr`) that bypass these restrictions.
+*   **Update to nightly**: `yt-dlp.exe --update-to nightly`
+*   The bundled binary is located at `src-tauri/bin/yt-dlp.exe`.
 
 ### 2. Signature solving failed
-Ensure **Deno** is installed and accessible in your terminal. You can verify this by running `deno --version`. If `yt-dlp` cannot find a JS runtime, it cannot decrypt YouTube's playback tokens.
+Ensure **Deno** is installed and accessible in your terminal (`deno --version`). yt-dlp uses Deno to solve YouTube's JavaScript signature challenges.
 
-### 3. Cookies (Optional)
-If bot detection persists, you can manually export cookies from your browser to a `.txt` file and pass them to `yt-dlp`, but the current `extractor-args` strategy is generally more stable for general use without requiring local browser file access.
+### 3. `[Errno 22] Invalid argument` during download
+Caused by **IPv6** connectivity issues with YouTube CDN on Windows. The app uses `--force-ipv4` to force all connections through IPv4.
 
 ### 4. Failed to decrypt with DPAPI (Windows)
-Avoid using `--cookies-from-browser` if the browser (Chrome/Edge) is currently open, as Windows locks the database. The current implementation avoids this by using server-side client strategies.
+Avoid `--cookies-from-browser` on Windows — Chrome/Edge lock the cookie database while running, and DPAPI decryption fails. The current implementation avoids cookies entirely.
+
+### 5. HTTP Error 429: Too Many Requests
+Usually resolved by having Deno installed (for JS challenge solving) and using the nightly build. If it persists, you may need to manually export cookies to a `.txt` file.

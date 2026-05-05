@@ -212,10 +212,12 @@ async fn get_youtube_info(url: String) -> Result<VideoInfo, String> {
         .args([
             "--dump-json",
             "--no-playlist",
-            "--extractor-args", "youtube:player_client=web_creator,mweb",
-            "--user-agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36",
+            "--force-ipv4",
+            "--encoding", "utf-8",
             &url,
         ])
+        .env("PYTHONIOENCODING", "utf-8")
+        .env("PYTHONUTF8", "1")
         .output()
         .map_err(|error| format!("Failed to execute yt-dlp: {}", error))?;
 
@@ -258,12 +260,12 @@ async fn download_youtube(
         "--no-playlist".to_string(),
         "--newline".to_string(),
         "--progress".to_string(),
-        "--extractor-args".to_string(),
-        "youtube:player_client=web_creator,mweb".to_string(),
-        "--user-agent".to_string(),
-        "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36".to_string(),
+        "--force-ipv4".to_string(),
+        "--encoding".to_string(),
+        "utf-8".to_string(),
         "--progress-template".to_string(),
         "[progress] %(progress._percent_str)s of %(progress._total_bytes_str)s at %(progress._speed_str)s ETA %(progress._eta_str)s".to_string(),
+        "--windows-filenames".to_string(),
         "-o".to_string(),
         output_template,
     ];
@@ -303,8 +305,13 @@ async fn download_youtube(
 
     args.push(url);
 
+    eprintln!("[yt-dlp] Binary: {}", &ytdlp);
+    eprintln!("[yt-dlp] Args: {:?}", &args);
+
     let mut child = Command::new(&ytdlp)
         .args(&args)
+        .env("PYTHONIOENCODING", "utf-8")
+        .env("PYTHONUTF8", "1")
         .stdout(Stdio::piped())
         .stderr(Stdio::piped())
         .spawn()
@@ -354,7 +361,18 @@ async fn download_youtube(
         },
     );
 
-    for (line, _is_stderr) in receiver {
+    let mut last_error = String::new();
+
+    for (line, is_stderr) in receiver {
+        if is_stderr {
+            eprintln!("[yt-dlp][stderr] {}", &line);
+            if line.contains("ERROR:") || line.contains("ffmpeg") || line.contains("error") {
+                last_error = line.clone();
+            }
+        } else {
+            eprintln!("[yt-dlp][stdout] {}", &line);
+        }
+
         if let Some(phase) = detect_phase(&line) {
             current_phase = phase;
             let phase_text = match current_phase.as_str() {
@@ -400,16 +418,22 @@ async fn download_youtube(
         .wait()
         .map_err(|error| format!("Failed to wait on yt-dlp: {}", error))?;
     if !status.success() {
+        let display_error = if last_error.is_empty() {
+            "Download failed. Please check your internet connection or URL.".to_string()
+        } else {
+            last_error.clone()
+        };
+
         let _ = app.emit(
             "download-progress",
             ProgressPayload {
                 percent: 0.0,
                 status: "error".to_string(),
-                status_text: "Download failed. Check if ffmpeg is installed.".to_string(),
+                status_text: display_error.clone(),
                 phase: "error".to_string(),
             },
         );
-        return Err("Download failed. Check if ffmpeg is installed for merging video/audio.".to_string());
+        return Err(format!("yt-dlp failed: {}", display_error));
     }
 
     let _ = app.emit(

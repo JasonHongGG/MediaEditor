@@ -93,7 +93,9 @@ export const YoutubeDownloader: React.FC = () => {
       setStatusText('Complete');
       setDownloadDone(true);
     } catch (e: any) {
-      setError(e.toString());
+      const errMsg = e.toString();
+      log.error('Download failed:', errMsg);
+      setError(errMsg);
       setProgress(0);
       setStatusText('');
     } finally {
