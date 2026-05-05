@@ -1,6 +1,6 @@
 import React from 'react';
-import { MediaEditorExperience } from '../../features/mediaEditor/MediaEditorExperience';
+import { MediaEditorWorkspace } from '../../features/mediaEditor/MediaEditorWorkspace';
 
 export const MediaEditor: React.FC = () => {
-  return <MediaEditorExperience />;
+  return <MediaEditorWorkspace />;
 };

@@ -1,0 +1,561 @@
+.editor {
+  height: 100%;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  background: #111318;
+  color: #f3f4f6;
+}
+
+.toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 14px 18px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+  background: #171a20;
+}
+
+.projectMeta {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-width: 0;
+}
+
+.projectMeta strong {
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.projectMeta span {
+  font-size: 12px;
+  color: #94a3b8;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 520px;
+}
+
+.toolbarActions,
+.timelineActions,
+.transportButtons,
+.volumeGroup,
+.assetActions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.toolbarButton,
+.primaryButton,
+.iconButton,
+.transportButton,
+.transportPrimary,
+.emptyState,
+.assetDragButton,
+.rulerSurface,
+.clip {
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  background: #20242d;
+  color: inherit;
+}
+
+.toolbarButton,
+.primaryButton {
+  height: 34px;
+  padding: 0 12px;
+  border-radius: 8px;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 13px;
+}
+
+.toolbarButton:hover,
+.iconButton:hover,
+.transportButton:hover,
+.assetDragButton:hover,
+.clip:hover {
+  background: #262b35;
+}
+
+.primaryButton,
+.transportPrimary {
+  background: #f3c316;
+  color: #101317;
+  border-color: #f3c316;
+  font-weight: 600;
+}
+
+.primaryButton:hover,
+.transportPrimary:hover {
+  background: #e6b70c;
+}
+
+.noticeBar {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 18px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+  background: #13161c;
+}
+
+.notice {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 12px;
+  color: #cbd5e1;
+}
+
+.noticeError {
+  color: #fca5a5;
+}
+
+.content {
+  min-height: 0;
+  flex: 1;
+  display: grid;
+  grid-template-columns: 300px minmax(0, 1fr);
+  overflow: hidden;
+}
+
+.binPanel,
+.mainPanel {
+  min-height: 0;
+  overflow: hidden;
+}
+
+.binPanel {
+  border-right: 1px solid rgba(255, 255, 255, 0.08);
+  background: #15181f;
+  display: flex;
+  flex-direction: column;
+}
+
+.mainPanel {
+  min-width: 0;
+  display: grid;
+  grid-template-rows: minmax(300px, 40%) minmax(0, 1fr);
+}
+
+.previewPanel,
+.timelinePanel {
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.previewPanel {
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.panelHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 14px 16px;
+}
+
+.panelHeader h2 {
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.panelHeader p,
+.previewSubtitle {
+  font-size: 12px;
+  color: #94a3b8;
+}
+
+.missingSummary {
+  margin: 0 16px 12px;
+  padding: 10px 12px;
+  border-radius: 8px;
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  font-size: 12px;
+  color: #fca5a5;
+  background: rgba(127, 29, 29, 0.22);
+}
+
+.assetList {
+  min-height: 0;
+  overflow: auto;
+  padding: 0 12px 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.emptyState {
+  min-height: 120px;
+  border-style: dashed;
+  border-radius: 10px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  align-items: center;
+  justify-content: center;
+  font-size: 13px;
+  color: #cbd5e1;
+}
+
+.assetCard {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 10px;
+  align-items: stretch;
+}
+
+.assetCardMissing .assetDragButton {
+  border-color: rgba(252, 165, 165, 0.4);
+}
+
+.assetDragButton {
+  width: 100%;
+  min-width: 0;
+  padding: 10px;
+  border-radius: 10px;
+  display: grid;
+  grid-template-columns: 76px minmax(0, 1fr);
+  gap: 10px;
+  align-items: center;
+  text-align: left;
+}
+
+.assetVisual {
+  width: 76px;
+  height: 48px;
+  border-radius: 8px;
+  overflow: hidden;
+  background: #0f1117;
+}
+
+.assetVisual img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.assetFallback {
+  width: 100%;
+  height: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #94a3b8;
+}
+
+.assetMeta {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+
+.assetMeta strong,
+.clipText {
+  font-size: 13px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.assetMeta span,
+.clipDuration {
+  font-size: 12px;
+  color: #94a3b8;
+}
+
+.iconButton,
+.transportButton,
+.transportPrimary {
+  width: 32px;
+  height: 32px;
+  border-radius: 8px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.previewSurface {
+  flex: 1;
+  margin: 0 16px;
+  border-radius: 12px;
+  overflow: hidden;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  background: #0d1015;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.previewVideo {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  background: #050709;
+}
+
+.previewPlaceholder {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  color: #cbd5e1;
+}
+
+.previewPlaceholder strong {
+  font-size: 14px;
+}
+
+.previewPlaceholder span {
+  font-size: 12px;
+  color: #94a3b8;
+}
+
+.transportBar {
+  padding: 12px 16px 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.transportMainRow {
+  display: grid;
+  grid-template-columns: auto 1fr auto;
+  gap: 16px;
+  align-items: center;
+}
+
+.transportTime {
+  display: inline-flex;
+  gap: 8px;
+  justify-self: center;
+  font-size: 13px;
+  color: #cbd5e1;
+}
+
+.volumeGroup input,
+.transportRange {
+  accent-color: #f3c316;
+}
+
+.volumeGroup input {
+  width: 120px;
+}
+
+.transportRange {
+  width: 100%;
+}
+
+.timelineScroller {
+  min-height: 0;
+  min-width: 0;
+  overflow: auto;
+  padding-bottom: 12px;
+}
+
+.timelineCanvas {
+  min-height: 100%;
+  min-width: 0;
+}
+
+.rulerRow,
+.trackRow {
+  display: grid;
+  grid-template-columns: 188px minmax(0, 1fr);
+}
+
+.stickyCell {
+  position: sticky;
+  left: 0;
+  z-index: 3;
+  background: #171a20;
+  border-right: 1px solid rgba(255, 255, 255, 0.08);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 0 12px;
+}
+
+.rulerSurface {
+  position: relative;
+  height: 44px;
+  background: #15181f;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+  border-left: none;
+}
+
+.rulerTick {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  width: 1px;
+  background: rgba(255, 255, 255, 0.12);
+}
+
+.rulerTick span {
+  position: absolute;
+  top: 8px;
+  left: 6px;
+  font-size: 11px;
+  color: #94a3b8;
+}
+
+.trackLane {
+  position: relative;
+  height: 72px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+  background:
+    repeating-linear-gradient(
+      90deg,
+      rgba(255, 255, 255, 0.05) 0,
+      rgba(255, 255, 255, 0.05) 1px,
+      transparent 1px,
+      transparent var(--grid-step)
+    ),
+    #11141a;
+}
+
+.trackLabelBlock {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.trackLabelBlock strong {
+  font-size: 13px;
+}
+
+.trackLabelBlock span {
+  font-size: 11px;
+  color: #94a3b8;
+}
+
+.clip {
+  position: absolute;
+  top: 10px;
+  height: 52px;
+  border-radius: 9px;
+  padding: 0;
+  overflow: hidden;
+}
+
+.clipSelected {
+  outline: 2px solid #f3c316;
+  outline-offset: 0;
+}
+
+.clipMuted {
+  opacity: 0.55;
+}
+
+.clipBody {
+  height: 100%;
+  padding: 0 16px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.clipIcon {
+  display: inline-flex;
+  align-items: center;
+  color: #f3c316;
+}
+
+.trimHandle {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  width: 8px;
+  padding: 0;
+  border: none;
+  background: rgba(255, 255, 255, 0.16);
+}
+
+.trimHandleStart {
+  left: 0;
+  cursor: ew-resize;
+}
+
+.trimHandleEnd {
+  right: 0;
+  cursor: ew-resize;
+}
+
+.playhead {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  width: 2px;
+  background: #f3c316;
+  pointer-events: none;
+  z-index: 4;
+}
+
+.dragGhost {
+  position: fixed;
+  z-index: 20;
+  pointer-events: none;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 12px;
+  border-radius: 8px;
+  background: rgba(20, 24, 31, 0.96);
+  border: 1px solid rgba(243, 195, 22, 0.35);
+  color: #f8fafc;
+  box-shadow: 0 12px 24px rgba(0, 0, 0, 0.28);
+}
+
+.hiddenMedia {
+  display: none;
+}
+
+@media (max-width: 1200px) {
+  .content {
+    grid-template-columns: 260px minmax(0, 1fr);
+  }
+
+  .transportMainRow {
+    grid-template-columns: 1fr;
+    justify-items: start;
+  }
+
+  .transportTime {
+    justify-self: start;
+  }
+}
+
+@media (max-width: 900px) {
+  .content {
+    grid-template-columns: 1fr;
+    grid-template-rows: 260px minmax(0, 1fr);
+  }
+
+  .binPanel {
+    border-right: none;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+  }
+
+  .toolbar {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .toolbarActions,
+  .timelineActions {
+    flex-wrap: wrap;
+  }
+}

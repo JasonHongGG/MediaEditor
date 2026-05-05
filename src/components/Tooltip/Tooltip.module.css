@@ -1,43 +1,49 @@
 .container {
   position: relative;
   display: inline-flex;
+  align-items: center;
 }
 
 .tooltip {
   position: absolute;
-  padding: 6px 12px;
-  background: var(--bg-surface-elevated);
-  color: var(--text-primary);
-  font-size: 12px;
+  max-width: 220px;
+  padding: 7px 11px;
+  border-radius: 12px;
+  border: 1px solid rgba(250, 204, 21, 0.18);
+  background: rgba(10, 10, 12, 0.94);
+  color: rgba(255, 247, 217, 0.92);
+  font-size: 11px;
   font-weight: 500;
-  border-radius: var(--radius-sm);
+  line-height: 1.35;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
   white-space: nowrap;
   pointer-events: none;
   z-index: 1000;
-  box-shadow: var(--shadow-md);
-  border: 1px solid var(--border-light);
+  box-shadow: 0 18px 40px rgba(0, 0, 0, 0.32);
+  backdrop-filter: blur(14px);
 }
 
 .top {
-  bottom: calc(100% + 8px);
+  bottom: calc(100% + 10px);
   left: 50%;
   transform: translateX(-50%);
 }
 
 .bottom {
-  top: calc(100% + 8px);
+  top: calc(100% + 10px);
   left: 50%;
   transform: translateX(-50%);
 }
 
 .left {
-  right: calc(100% + 8px);
+  right: calc(100% + 10px);
   top: 50%;
   transform: translateY(-50%);
 }
 
 .right {
-  left: calc(100% + 8px);
+  left: calc(100% + 10px);
   top: 50%;
   transform: translateY(-50%);
 }

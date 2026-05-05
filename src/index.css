@@ -115,7 +115,8 @@ input, select, textarea {
 }
 
 .workspace-content {
+  min-height: 0;
   flex: 1;
-  overflow-y: auto;
+  overflow: hidden;
   position: relative;
 }
