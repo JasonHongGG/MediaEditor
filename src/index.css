@@ -1,50 +1,48 @@
-@import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;500&display=swap');
 
 :root {
-  --font-family: 'Plus Jakarta Sans', 'Segoe UI', system-ui, sans-serif;
+  --font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+  --font-mono: 'JetBrains Mono', 'Courier New', Courier, monospace;
   
-  /* Core Colors — Dark with Yellow */
-  --bg-base: #0f1115;
-  --bg-surface: #1a1d24;
-  --bg-surface-elevated: #252a33;
-  --bg-overlay: rgba(15, 17, 21, 0.7);
+  /* Core Colors — Professional High-Contrast Dark */
+  --bg-base: #000000;
+  --bg-surface: #0a0a0a;
+  --bg-surface-elevated: #141414;
+  --bg-overlay: rgba(0, 0, 0, 0.85);
   
-  /* Accents — Pure Yellow */
-  --accent-primary: #facc15;
-  --accent-primary-hover: #eab308;
-  --accent-secondary: #fde047;
-  --accent-success: #facc15;
-  --accent-danger: #a16207;
+  /* Accents — Muted Gold */
+  --accent-primary: #D4AF37;
+  --accent-primary-hover: #E8C14A;
+  --accent-secondary: #B5952F;
+  --accent-success: #22c55e;
+  --accent-danger: #ef4444;
   
   /* Text */
-  --text-primary: #f8fafc;
-  --text-secondary: #94a3b8;
-  --text-muted: #64748b;
+  --text-primary: #ededed;
+  --text-secondary: #a1a1aa;
+  --text-muted: #52525b;
   
-  /* Borders */
-  --border-subtle: rgba(255, 255, 255, 0.05);
-  --border-light: rgba(255, 255, 255, 0.1);
-  --border-strong: rgba(255, 255, 255, 0.2);
+  /* Borders - 1px precise dividers */
+  --border-subtle: rgba(255, 255, 255, 0.04);
+  --border-light: rgba(255, 255, 255, 0.08);
+  --border-strong: rgba(255, 255, 255, 0.15);
   
   /* Effects */
-  --shadow-sm: 0 1px 2px 0 rgba(0, 0, 0, 0.3);
-  --shadow-md: 0 4px 6px -1px rgba(0, 0, 0, 0.3), 0 2px 4px -2px rgba(0, 0, 0, 0.3);
-  --shadow-lg: 0 10px 15px -3px rgba(0, 0, 0, 0.3), 0 4px 6px -4px rgba(0, 0, 0, 0.3);
-  --glass-blur: blur(12px);
-  --glass-bg: rgba(26, 29, 36, 0.6);
-  --glass-border: rgba(255, 255, 255, 0.08);
+  --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.8);
+  --shadow-md: 0 4px 12px rgba(0, 0, 0, 0.8);
+  --shadow-lg: 0 16px 32px rgba(0, 0, 0, 0.9);
 
-  /* Glow */
-  --glow-primary: rgba(250, 204, 21, 0.2);
+  /* Glow - Minimalist */
+  --glow-primary: rgba(212, 175, 55, 0.1);
 
-  /* Border Radius */
-  --radius-sm: 6px;
-  --radius-md: 8px;
-  --radius-lg: 12px;
-  --radius-full: 9999px;
+  /* Border Radius - Sharp, Professional */
+  --radius-sm: 4px;
+  --radius-md: 6px;
+  --radius-lg: 8px;
+  --radius-full: 4px; /* Defaulting to 4px to avoid toys */
   
   /* Layout */
-  --header-height: 48px;
+  --header-height: 44px;
 }
 
 * {
@@ -55,9 +53,7 @@
 
 body {
   font-family: var(--font-family);
-  background:
-    radial-gradient(circle at top, rgba(250, 204, 21, 0.12), transparent 32%),
-    linear-gradient(180deg, #111317, #0b0c0f 58%);
+  background: var(--bg-base);
   color: var(--text-primary);
   line-height: 1.5;
   -webkit-font-smoothing: antialiased;
@@ -84,10 +80,10 @@ input, select, textarea {
   color: inherit;
 }
 
-/* Scrollbar styling */
+/* Scrollbar styling - Minimalist */
 ::-webkit-scrollbar {
-  width: 8px;
-  height: 8px;
+  width: 10px;
+  height: 10px;
 }
 
 ::-webkit-scrollbar-track {
@@ -96,11 +92,13 @@ input, select, textarea {
 
 ::-webkit-scrollbar-thumb {
   background: var(--border-light);
-  border-radius: var(--radius-full);
+  border-radius: 5px;
+  border: 3px solid transparent;
+  background-clip: content-box;
 }
 
 ::-webkit-scrollbar-thumb:hover {
-  background: var(--border-strong);
+  background-color: var(--text-muted);
 }
 
 .app-container {
@@ -108,10 +106,7 @@ input, select, textarea {
   flex-direction: column;
   height: 100vh;
   width: 100vw;
-  background:
-    radial-gradient(circle at 50% 0%, var(--glow-primary) 0%, transparent 38%),
-    linear-gradient(180deg, rgba(255, 255, 255, 0.02), transparent 26%),
-    var(--bg-base);
+  background: var(--bg-base);
 }
 
 .workspace-content {

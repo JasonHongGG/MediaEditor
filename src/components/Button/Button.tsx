@@ -1,7 +1,6 @@
 import React from 'react';
 import { motion, type HTMLMotionProps } from 'framer-motion';
 import styles from './Button.module.css';
-import { Tooltip } from '../Tooltip/Tooltip';
 
 interface ButtonProps extends Omit<HTMLMotionProps<"button">, 'ref'> {
   variant?: 'primary' | 'secondary' | 'danger' | 'ghost';
@@ -43,15 +42,7 @@ export const Button = React.forwardRef<HTMLButtonElement, ButtonProps>(
       </motion.button>
     );
 
-    if (!tooltip) {
-      return button;
-    }
-
-    return (
-      <Tooltip content={tooltip} position={tooltipPosition} disabled={disabled || loading}>
-        {button}
-      </Tooltip>
-    );
+    return button;
   }
 );
 

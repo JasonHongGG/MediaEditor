@@ -2,7 +2,6 @@ import React from 'react';
 import { getCurrentWindow } from '@tauri-apps/api/window';
 import { Minus, X, Download, Scissors } from 'lucide-react';
 import { motion } from 'framer-motion';
-import { Tooltip } from '../Tooltip/Tooltip';
 import styles from './Header.module.css';
 
 export type Tab = 'youtube' | 'editor';
@@ -31,36 +30,32 @@ export const Header: React.FC<HeaderProps> = ({ activeTab, onTabChange }) => {
             className={`${styles.tab} ${activeTab === 'youtube' ? styles.active : ''}`}
             onClick={() => onTabChange('youtube')}
           >
-            <Download size={15} />
-            Download
+            <Download size={14} />
+            Downloader
             {activeTab === 'youtube' && (
-              <motion.div layoutId="activeTab" className={styles.activeIndicator} />
+              <motion.div layoutId="activeTabIndicator" className={styles.activeIndicator} transition={{ duration: 0.2 }} />
             )}
           </button>
           <button 
             className={`${styles.tab} ${activeTab === 'editor' ? styles.active : ''}`}
             onClick={() => onTabChange('editor')}
           >
-            <Scissors size={15} />
-            Editor
+            <Scissors size={14} />
+            Workspace
             {activeTab === 'editor' && (
-              <motion.div layoutId="activeTab" className={styles.activeIndicator} />
+              <motion.div layoutId="activeTabIndicator" className={styles.activeIndicator} transition={{ duration: 0.2 }} />
             )}
           </button>
         </div>
       </div>
 
       <div className={styles.right}>
-        <Tooltip content="Minimize window">
-          <button className={styles.controlBtn} onClick={minimize} aria-label="Minimize window">
-            <Minus size={14} />
-          </button>
-        </Tooltip>
-        <Tooltip content="Close application" position="left">
-          <button className={`${styles.controlBtn} ${styles.closeBtn}`} onClick={close} aria-label="Close application">
-            <X size={14} />
-          </button>
-        </Tooltip>
+        <button className={styles.controlBtn} onClick={minimize} aria-label="Minimize window">
+          <Minus size={14} />
+        </button>
+        <button className={`${styles.controlBtn} ${styles.closeBtn}`} onClick={close} aria-label="Close application">
+          <X size={14} />
+        </button>
       </div>
     </div>
   );

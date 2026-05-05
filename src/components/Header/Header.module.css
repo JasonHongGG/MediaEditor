@@ -1,7 +1,7 @@
 .header {
   height: var(--header-height);
   background: var(--bg-surface);
-  border-bottom: 1px solid var(--border-light);
+  border-bottom: 1px solid var(--border-subtle);
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -44,32 +44,29 @@
 }
 
 .logoIcon {
-  width: 24px;
-  height: 24px;
-  background: linear-gradient(135deg, var(--accent-primary), var(--accent-secondary));
-  border-radius: 6px;
+  width: 20px;
+  height: 20px;
+  background: var(--accent-primary);
+  border-radius: var(--radius-sm);
   display: flex;
   align-items: center;
   justify-content: center;
-  font-weight: 800;
-  font-size: 14px;
-  color: #0f1115;
+  font-weight: 700;
+  font-size: 12px;
+  color: #000;
 }
 
 .logoText {
-  font-weight: 600;
-  font-size: 14px;
+  font-weight: 500;
+  font-size: 13px;
   color: var(--text-primary);
   letter-spacing: 0.5px;
 }
 
 .tabs {
   display: flex;
-  gap: 4px;
-  background: var(--bg-base);
-  padding: 4px;
-  border-radius: var(--radius-lg);
-  border: 1px solid var(--border-subtle);
+  gap: 8px;
+  height: 100%;
   -webkit-app-region: no-drag;
 }
 
@@ -78,11 +75,11 @@
   display: flex;
   align-items: center;
   gap: 6px;
-  padding: 6px 20px;
+  padding: 0 16px;
+  height: 100%;
   font-size: 13px;
   font-weight: 500;
   color: var(--text-muted);
-  border-radius: var(--radius-md);
   transition: color 0.2s;
   background: transparent;
 }
@@ -92,24 +89,23 @@
 }
 
 .tab.active {
-  color: var(--accent-primary);
+  color: var(--text-primary);
 }
 
 .activeIndicator {
   position: absolute;
-  inset: 0;
-  background: var(--bg-surface-elevated);
-  border-radius: var(--radius-md);
-  z-index: -1;
-  box-shadow: var(--shadow-sm);
-  border: 1px solid rgba(250, 204, 21, 0.15);
+  bottom: 0;
+  left: 0;
+  right: 0;
+  height: 2px;
+  background: var(--accent-primary);
+  z-index: 1;
 }
 
-/* Window control buttons — compact rounded squares */
+/* Window control buttons */
 .controlBtn {
-  width: 28px;
-  height: 28px;
-  border-radius: var(--radius-sm);
+  width: 36px;
+  height: 100%;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -118,11 +114,11 @@
 }
 
 .controlBtn:hover {
-  background: rgba(255, 255, 255, 0.08);
+  background: var(--bg-surface-elevated);
   color: var(--text-primary);
 }
 
 .closeBtn:hover {
-  background: rgba(161, 98, 7, 0.35);
-  color: var(--accent-secondary);
+  background: #e11d48;
+  color: white;
 }

@@ -14,7 +14,6 @@ import {
   Waves,
   X,
 } from 'lucide-react';
-import { Tooltip } from '../../components/Tooltip/Tooltip';
 import { createLogger, getErrorMessage, serializeError } from '../../utils/logger';
 import { getPendingExportSession, processTimelineExport } from './exportApi';
 import type {
@@ -249,23 +248,19 @@ export const ExportWindow: React.FC = () => {
           <p>Create a final video or audio file in a dedicated export window.</p>
         </div>
 
-        <Tooltip content="Close export window" position="left">
-          <button type="button" className={styles.iconButton} onClick={() => void getCurrentWindow().close()}>
-            <X size={16} />
-          </button>
-        </Tooltip>
+        <button type="button" className={styles.iconButton} onClick={() => void getCurrentWindow().close()}>
+          <X size={16} />
+        </button>
       </header>
 
       {!session ? (
         <section className={styles.emptyState}>
           <AlertCircle size={18} />
           <strong>{errorMessage ?? 'No pending timeline export.'}</strong>
-          <Tooltip content="Reload the pending export session from the main editor">
-            <button type="button" className={styles.secondaryButton} onClick={() => void refreshSession()}>
-              <RefreshCcw size={15} />
-              Refresh
-            </button>
-          </Tooltip>
+          <button type="button" className={styles.secondaryButton} onClick={() => void refreshSession()}>
+            <RefreshCcw size={15} />
+            Refresh
+          </button>
         </section>
       ) : (
         <div className={styles.grid}>
@@ -340,11 +335,9 @@ export const ExportWindow: React.FC = () => {
                   value={outputPath}
                   onChange={(event) => setOutputPath(event.target.value)}
                 />
-                <Tooltip content="Choose a destination file path" position="left">
-                  <button type="button" className={styles.iconButton} onClick={() => void pickOutputPath()}>
-                    <FolderOpen size={16} />
-                  </button>
-                </Tooltip>
+                <button type="button" className={styles.iconButton} onClick={() => void pickOutputPath()}>
+                  <FolderOpen size={16} />
+                </button>
               </div>
             </div>
           </section>
@@ -400,18 +393,14 @@ export const ExportWindow: React.FC = () => {
             </div>
 
             <div className={styles.actions}>
-              <Tooltip content="Reload the export session and reset progress">
-                <button type="button" className={styles.secondaryButton} onClick={() => void refreshSession()}>
-                  <RefreshCcw size={15} />
-                  Refresh
-                </button>
-              </Tooltip>
-              <Tooltip content="Run ffmpeg with the current export settings" disabled={status === 'running'}>
-                <button type="button" className={styles.primaryButton} onClick={() => void handleExport()} disabled={status === 'running'}>
-                  <FileOutput size={16} />
-                  {status === 'running' ? 'Exporting...' : 'Start Export'}
-                </button>
-              </Tooltip>
+              <button type="button" className={styles.secondaryButton} onClick={() => void refreshSession()}>
+                <RefreshCcw size={15} />
+                Refresh
+              </button>
+              <button type="button" className={styles.primaryButton} onClick={() => void handleExport()} disabled={status === 'running'}>
+                <FileOutput size={16} />
+                {status === 'running' ? 'Exporting...' : 'Start Export'}
+              </button>
             </div>
 
             <div className={styles.notes}>

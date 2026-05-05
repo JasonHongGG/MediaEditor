@@ -48,7 +48,6 @@ import {
   loadProjectDocument,
   saveProjectDocument,
 } from './mediaApi';
-import { Tooltip } from '../../components/Tooltip/Tooltip';
 import { createLogger, getErrorMessage, serializeError } from '../../utils/logger';
 import { openExportWindow } from './exportApi';
 import { preparePendingExportSession } from './exportSession';
@@ -897,49 +896,28 @@ export const MediaEditorWorkspace: React.FC = () => {
       <section className={styles.toolbar}>
         <div className={styles.projectMeta}>
           <strong>{state.documentName}</strong>
-          <span>
-            {state.documentPath ? state.documentPath : 'Unsaved project'}
-            {state.dirty ? ' • modified' : ''}
-          </span>
+          {state.dirty && <span className={styles.dirtyDot} />}
         </div>
 
         <div className={styles.toolbarActions}>
-          <Tooltip content="Create a blank project" shortcut="N">
-            <button type="button" className={styles.toolbarButton} onClick={handleNewProject}>
-              <FilePlus2 size={15} />
-              New
-            </button>
-          </Tooltip>
-          <Tooltip content="Open an existing project file">
-            <button type="button" className={styles.toolbarButton} onClick={() => void handleOpenProject()}>
-              <FolderOpen size={15} />
-              Open
-            </button>
-          </Tooltip>
-          <Tooltip content="Save changes to the current project">
-            <button type="button" className={styles.toolbarButton} onClick={() => void handleSaveProject(false)}>
-              <Save size={15} />
-              Save
-            </button>
-          </Tooltip>
-          <Tooltip content="Save the project to a new file path">
-            <button type="button" className={styles.toolbarButton} onClick={() => void handleSaveProject(true)}>
-              <Save size={15} />
-              Save As
-            </button>
-          </Tooltip>
-          <Tooltip content="Open the dedicated export settings window">
-            <button type="button" className={styles.toolbarButton} onClick={() => void handleOpenExportWindow()}>
-              <FileOutput size={15} />
-              Export
-            </button>
-          </Tooltip>
-          <Tooltip content="Import local video and audio files into this project">
-            <button type="button" className={styles.primaryButton} onClick={() => void handleImportClick()}>
-              <Import size={15} />
-              Import Media
-            </button>
-          </Tooltip>
+          <button type="button" className={styles.iconButton} onClick={handleNewProject}>
+            <FilePlus2 size={14} />
+          </button>
+          <button type="button" className={styles.iconButton} onClick={() => void handleOpenProject()}>
+            <FolderOpen size={14} />
+          </button>
+          <button type="button" className={styles.iconButton} onClick={() => void handleSaveProject(false)}>
+            <Save size={14} />
+          </button>
+          <div className={styles.toolbarDivider} />
+          <button type="button" className={styles.toolbarButton} onClick={() => void handleOpenExportWindow()}>
+            <FileOutput size={14} />
+            Export
+          </button>
+          <button type="button" className={styles.primaryButton} onClick={() => void handleImportClick()}>
+            <Import size={14} />
+            Import
+          </button>
         </div>
       </section>
 
@@ -960,10 +938,8 @@ export const MediaEditorWorkspace: React.FC = () => {
       <div className={styles.content}>
         <aside className={styles.binPanel}>
           <div className={styles.panelHeader}>
-            <div>
-              <h2>Project Files</h2>
-              <p>{state.assets.length} media items</p>
-            </div>
+            <h2>Media Pool</h2>
+            <span className={styles.badge}>{state.assets.length}</span>
           </div>
 
           {missingAssets.length > 0 && (
@@ -976,8 +952,7 @@ export const MediaEditorWorkspace: React.FC = () => {
           <div className={styles.assetList}>
             {state.assets.length === 0 && (
               <button type="button" className={styles.emptyState} onClick={() => void handleImportClick()}>
-                <Import size={18} />
-                <span>Import video or audio files</span>
+                <Import size={20} />
               </button>
             )}
 
@@ -1037,119 +1012,77 @@ export const MediaEditorWorkspace: React.FC = () => {
 
         <main className={styles.mainPanel}>
           <section className={styles.previewPanel}>
-            <div className={styles.panelHeader}>
-              <div>
-                <h2>Preview</h2>
-                <p>{previewTitle}</p>
-              </div>
-              <span className={styles.previewSubtitle}>{previewSubtitle}</span>
-            </div>
-
-            <div className={styles.previewSurface}>
+            <div className={styles.previewContainer}>
               {activeVideoEntry?.asset.url ? (
                 <video ref={previewVideoRef} className={styles.previewVideo} muted playsInline preload="auto" />
               ) : (
                 <div className={styles.previewPlaceholder}>
-                  {previewAsset?.kind === 'audio' ? <Music2 size={28} /> : <Film size={28} />}
-                  <strong>{previewTitle}</strong>
-                  <span>{previewSubtitle}</span>
+                  {previewAsset?.kind === 'audio' ? <Music2 size={32} /> : <Film size={32} />}
                 </div>
               )}
-            </div>
 
-            <div className={styles.transportBar}>
-              <div className={styles.transportMainRow}>
-                <div className={styles.transportButtons}>
-                  <Tooltip content="Jump backward by one second" disabled={timelineDurationMs === 0}>
-                    <button type="button" className={styles.transportButton} onClick={() => seekBy(-1000)} disabled={timelineDurationMs === 0}>
+              <div className={styles.transportOverlay}>
+                <div className={styles.transportTime}>
+                  <span className={styles.timecode}>{formatTransportTime(state.playheadMs)}</span>
+                  <span className={styles.timecodeDivider}>/</span>
+                  <span className={styles.timecodeDuration}>{formatTransportTime(timelineDurationMs)}</span>
+                </div>
+
+                <div className={styles.transportMainRow}>
+                  <div className={styles.volumeGroup}>
+                    <button
+                      type="button"
+                      className={styles.iconButton}
+                      onClick={() => dispatch({ type: 'set-preview-muted', previewMuted: !state.previewMuted })}
+                    >
+                      {state.previewMuted ? <VolumeX size={14} /> : <Volume2 size={14} />}
+                    </button>
+                    <input
+                      type="range"
+                      min={0}
+                      max={1}
+                      step={0.01}
+                      value={state.previewVolume}
+                      onChange={(event) =>
+                        dispatch({
+                          type: 'set-preview-volume',
+                          previewVolume: Number(event.target.value),
+                        })}
+                    />
+                  </div>
+
+                  <div className={styles.transportButtons}>
+                    <button type="button" className={styles.iconButton} onClick={() => seekBy(-1000)} disabled={timelineDurationMs === 0}>
                       <SkipBack size={16} />
                     </button>
-                  </Tooltip>
-                  <Tooltip content={state.isPlaying ? 'Pause playback' : 'Start playback'} shortcut="Space" disabled={timelineDurationMs === 0}>
                     <button type="button" className={styles.transportPrimary} onClick={togglePlay} disabled={timelineDurationMs === 0}>
-                      {state.isPlaying ? <Pause size={16} /> : <Play size={16} />}
+                      {state.isPlaying ? <Pause size={18} /> : <Play size={18} />}
                     </button>
-                  </Tooltip>
-                  <Tooltip content="Jump forward by one second" disabled={timelineDurationMs === 0}>
-                    <button type="button" className={styles.transportButton} onClick={() => seekBy(1000)} disabled={timelineDurationMs === 0}>
+                    <button type="button" className={styles.iconButton} onClick={() => seekBy(1000)} disabled={timelineDurationMs === 0}>
                       <SkipForward size={16} />
                     </button>
-                  </Tooltip>
-                </div>
-
-                <div className={styles.transportTime}>
-                  <span>{formatTransportTime(state.playheadMs)}</span>
-                  <span>/</span>
-                  <span>{formatTransportTime(timelineDurationMs)}</span>
-                </div>
-
-                <div className={styles.volumeGroup}>
-                  <button
-                    type="button"
-                    className={styles.transportButton}
-                    onClick={() => dispatch({ type: 'set-preview-muted', previewMuted: !state.previewMuted })}
-                  >
-                    {state.previewMuted ? <VolumeX size={16} /> : <Volume2 size={16} />}
-                  </button>
-                  <input
-                    type="range"
-                    min={0}
-                    max={1}
-                    step={0.01}
-                    value={state.previewVolume}
-                    onChange={(event) =>
-                      dispatch({
-                        type: 'set-preview-volume',
-                        previewVolume: Number(event.target.value),
-                      })}
-                  />
+                  </div>
+                  
+                  <div className={styles.transportSpacer} />
                 </div>
               </div>
-
-              <input
-                type="range"
-                className={styles.transportRange}
-                min={0}
-                max={Math.max(timelineDurationMs, 1)}
-                step={10}
-                value={Math.min(state.playheadMs, timelineDurationMs)}
-                onChange={(event) => seekTo(Number(event.target.value))}
-              />
             </div>
           </section>
 
           <section className={styles.timelinePanel}>
             <div className={styles.panelHeader}>
-              <div>
-                <h2>Timeline</h2>
-                <p>{state.clips.length} clips across {state.tracks.length} tracks | Ctrl+Wheel to zoom</p>
-              </div>
-
               <div className={styles.timelineActions}>
-                <Tooltip content="Split the selected clip at the playhead" shortcut="S" disabled={!selectedClip}>
-                  <button type="button" className={styles.toolbarButton} onClick={() => dispatch({ type: 'split-clip', clipId: selectedClip?.id ?? '', atMs: state.playheadMs })} disabled={!selectedClip}>
-                    <Scissors size={14} />
-                    Split
-                  </button>
-                </Tooltip>
-                <Tooltip content={selectedClip?.muted ? 'Restore audio on the selected clip' : 'Mute audio on the selected clip'} shortcut="M" disabled={!selectedClip}>
-                  <button type="button" className={styles.toolbarButton} onClick={() => dispatch({ type: 'set-selected-clips-muted', muted: !Boolean(selectedClip?.muted) })} disabled={!selectedClip}>
-                    {selectedClip?.muted ? <Volume2 size={14} /> : <VolumeX size={14} />}
-                    {selectedClip?.muted ? 'Unmute' : 'Mute'}
-                  </button>
-                </Tooltip>
-                <Tooltip content="Delete the selected clip from the timeline" shortcut="Delete" disabled={!selectedClip}>
-                  <button type="button" className={styles.toolbarButton} onClick={() => dispatch({ type: 'delete-selected-clips' })} disabled={!selectedClip}>
-                    <Trash2 size={14} />
-                    Delete
-                  </button>
-                </Tooltip>
-                <Tooltip content="Add a new empty track to the timeline">
-                  <button type="button" className={styles.toolbarButton} onClick={() => dispatch({ type: 'add-track' })}>
-                    <Plus size={14} />
-                    Track
-                  </button>
-                </Tooltip>
+                <button type="button" className={styles.iconButton} onClick={() => dispatch({ type: 'split-clip', clipId: selectedClip?.id ?? '', atMs: state.playheadMs })} disabled={!selectedClip}>
+                  <Scissors size={14} />
+                </button>
+                <button type="button" className={styles.iconButton} onClick={() => dispatch({ type: 'delete-selected-clips' })} disabled={!selectedClip}>
+                  <Trash2 size={14} />
+                </button>
+                <div className={styles.toolbarDivider} />
+                <button type="button" className={styles.toolbarButton} onClick={() => dispatch({ type: 'add-track' })}>
+                  <Plus size={14} />
+                  Track
+                </button>
               </div>
             </div>
 
