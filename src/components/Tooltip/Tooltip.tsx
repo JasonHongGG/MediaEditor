@@ -3,13 +3,24 @@ import { motion, AnimatePresence } from 'framer-motion';
 import styles from './Tooltip.module.css';
 
 interface TooltipProps {
-  content: string;
+  content: React.ReactNode;
   children: React.ReactNode;
   position?: 'top' | 'bottom' | 'left' | 'right';
   delayMs?: number;
+  disabled?: boolean;
+  shortcut?: string;
+  maxWidth?: number;
 }
 
-export const Tooltip: React.FC<TooltipProps> = ({ content, children, position = 'top', delayMs = 140 }) => {
+export const Tooltip: React.FC<TooltipProps> = ({
+  content,
+  children,
+  position = 'top',
+  delayMs = 140,
+  disabled = false,
+  shortcut,
+  maxWidth,
+}) => {
   const [isVisible, setIsVisible] = useState(false);
   const timeoutRef = useRef<number | null>(null);
 
@@ -21,6 +32,10 @@ export const Tooltip: React.FC<TooltipProps> = ({ content, children, position = 
   };
 
   const openTooltip = () => {
+    if (disabled) {
+      return;
+    }
+
     clearPendingTooltip();
     timeoutRef.current = window.setTimeout(() => {
       setIsVisible(true);
@@ -48,7 +63,7 @@ export const Tooltip: React.FC<TooltipProps> = ({ content, children, position = 
     >
       {children}
       <AnimatePresence>
-        {isVisible && (
+        {isVisible && !disabled && (
           <motion.div
             initial={{ opacity: 0, y: position === 'top' ? 6 : position === 'bottom' ? -6 : 0, scale: 0.98 }}
             animate={{ opacity: 1, y: 0, scale: 1 }}
@@ -56,8 +71,10 @@ export const Tooltip: React.FC<TooltipProps> = ({ content, children, position = 
             transition={{ duration: 0.14, ease: 'easeOut' }}
             className={`${styles.tooltip} ${styles[position]}`}
             role="tooltip"
+            style={maxWidth ? { maxWidth: `${maxWidth}px` } : undefined}
           >
-            {content}
+            <span className={styles.content}>{content}</span>
+            {shortcut ? <span className={styles.shortcut}>{shortcut}</span> : null}
           </motion.div>
         )}
       </AnimatePresence>

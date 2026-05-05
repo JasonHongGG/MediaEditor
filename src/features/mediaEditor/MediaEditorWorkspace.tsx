@@ -4,6 +4,7 @@ import { open, save } from '@tauri-apps/plugin-dialog';
 import {
   AlertCircle,
   FilePlus2,
+  FileOutput,
   Film,
   FolderOpen,
   Import,
@@ -47,9 +48,15 @@ import {
   loadProjectDocument,
   saveProjectDocument,
 } from './mediaApi';
+import { Tooltip } from '../../components/Tooltip/Tooltip';
+import { createLogger, getErrorMessage, serializeError } from '../../utils/logger';
+import { openExportWindow } from './exportApi';
+import { preparePendingExportSession } from './exportSession';
 import { sortTracksDescending } from './timelineCommands';
 import { usePlaybackController } from './usePlaybackController';
 import styles from './MediaEditorWorkspace.module.css';
+
+const log = createLogger('MediaEditorWorkspace');
 
 const LABEL_WIDTH_PX = 188;
 
@@ -621,7 +628,11 @@ export const MediaEditorWorkspace: React.FC = () => {
       dispatch({ type: 'replace-project', nextState });
       setStatusMessage(`Opened ${projectNameFromPath(path)}.`);
     } catch (error) {
-      setErrorMessage(error instanceof Error ? error.message : 'Failed to open project.');
+      log.error('Failed to open project.', {
+        path,
+        error: serializeError(error),
+      });
+      setErrorMessage(getErrorMessage(error, 'Failed to open project.'));
     } finally {
       setIsProjectLoading(false);
     }
@@ -690,7 +701,11 @@ export const MediaEditorWorkspace: React.FC = () => {
       setStatusMessage(`Saved ${projectNameFromPath(documentPath)}.`);
       setErrorMessage(null);
     } catch (error) {
-      setErrorMessage(error instanceof Error ? error.message : 'Failed to save project.');
+      log.error('Failed to save project.', {
+        path: state.documentPath,
+        error: serializeError(error),
+      });
+      setErrorMessage(getErrorMessage(error, 'Failed to save project.'));
     }
   };
 
@@ -704,6 +719,27 @@ export const MediaEditorWorkspace: React.FC = () => {
     dispatch({ type: 'reset-project' });
     setStatusMessage('Started a new project.');
     setErrorMessage(null);
+  };
+
+  const handleOpenExportWindow = async () => {
+    stopPlayback();
+    setErrorMessage(null);
+
+    try {
+      const session = preparePendingExportSession(state);
+      await openExportWindow(session);
+      setStatusMessage('Opened export settings.');
+    } catch (error) {
+      log.error('Failed to open export window.', {
+        error: serializeError(error),
+        timeline: {
+          clips: state.clips.length,
+          tracks: state.tracks.length,
+          assets: state.assets.length,
+        },
+      });
+      setErrorMessage(getErrorMessage(error, 'Failed to open export window.'));
+    }
   };
 
   const handleRelinkAsset = async (assetId: string) => {
@@ -868,26 +904,42 @@ export const MediaEditorWorkspace: React.FC = () => {
         </div>
 
         <div className={styles.toolbarActions}>
-          <button type="button" className={styles.toolbarButton} onClick={handleNewProject}>
-            <FilePlus2 size={15} />
-            New
-          </button>
-          <button type="button" className={styles.toolbarButton} onClick={() => void handleOpenProject()}>
-            <FolderOpen size={15} />
-            Open
-          </button>
-          <button type="button" className={styles.toolbarButton} onClick={() => void handleSaveProject(false)}>
-            <Save size={15} />
-            Save
-          </button>
-          <button type="button" className={styles.toolbarButton} onClick={() => void handleSaveProject(true)}>
-            <Save size={15} />
-            Save As
-          </button>
-          <button type="button" className={styles.primaryButton} onClick={() => void handleImportClick()}>
-            <Import size={15} />
-            Import Media
-          </button>
+          <Tooltip content="Create a blank project" shortcut="N">
+            <button type="button" className={styles.toolbarButton} onClick={handleNewProject}>
+              <FilePlus2 size={15} />
+              New
+            </button>
+          </Tooltip>
+          <Tooltip content="Open an existing project file">
+            <button type="button" className={styles.toolbarButton} onClick={() => void handleOpenProject()}>
+              <FolderOpen size={15} />
+              Open
+            </button>
+          </Tooltip>
+          <Tooltip content="Save changes to the current project">
+            <button type="button" className={styles.toolbarButton} onClick={() => void handleSaveProject(false)}>
+              <Save size={15} />
+              Save
+            </button>
+          </Tooltip>
+          <Tooltip content="Save the project to a new file path">
+            <button type="button" className={styles.toolbarButton} onClick={() => void handleSaveProject(true)}>
+              <Save size={15} />
+              Save As
+            </button>
+          </Tooltip>
+          <Tooltip content="Open the dedicated export settings window">
+            <button type="button" className={styles.toolbarButton} onClick={() => void handleOpenExportWindow()}>
+              <FileOutput size={15} />
+              Export
+            </button>
+          </Tooltip>
+          <Tooltip content="Import local video and audio files into this project">
+            <button type="button" className={styles.primaryButton} onClick={() => void handleImportClick()}>
+              <Import size={15} />
+              Import Media
+            </button>
+          </Tooltip>
         </div>
       </section>
 
@@ -1008,15 +1060,21 @@ export const MediaEditorWorkspace: React.FC = () => {
             <div className={styles.transportBar}>
               <div className={styles.transportMainRow}>
                 <div className={styles.transportButtons}>
-                  <button type="button" className={styles.transportButton} onClick={() => seekBy(-1000)} disabled={timelineDurationMs === 0}>
-                    <SkipBack size={16} />
-                  </button>
-                  <button type="button" className={styles.transportPrimary} onClick={togglePlay} disabled={timelineDurationMs === 0}>
-                    {state.isPlaying ? <Pause size={16} /> : <Play size={16} />}
-                  </button>
-                  <button type="button" className={styles.transportButton} onClick={() => seekBy(1000)} disabled={timelineDurationMs === 0}>
-                    <SkipForward size={16} />
-                  </button>
+                  <Tooltip content="Jump backward by one second" disabled={timelineDurationMs === 0}>
+                    <button type="button" className={styles.transportButton} onClick={() => seekBy(-1000)} disabled={timelineDurationMs === 0}>
+                      <SkipBack size={16} />
+                    </button>
+                  </Tooltip>
+                  <Tooltip content={state.isPlaying ? 'Pause playback' : 'Start playback'} shortcut="Space" disabled={timelineDurationMs === 0}>
+                    <button type="button" className={styles.transportPrimary} onClick={togglePlay} disabled={timelineDurationMs === 0}>
+                      {state.isPlaying ? <Pause size={16} /> : <Play size={16} />}
+                    </button>
+                  </Tooltip>
+                  <Tooltip content="Jump forward by one second" disabled={timelineDurationMs === 0}>
+                    <button type="button" className={styles.transportButton} onClick={() => seekBy(1000)} disabled={timelineDurationMs === 0}>
+                      <SkipForward size={16} />
+                    </button>
+                  </Tooltip>
                 </div>
 
                 <div className={styles.transportTime}>
@@ -1068,22 +1126,30 @@ export const MediaEditorWorkspace: React.FC = () => {
               </div>
 
               <div className={styles.timelineActions}>
-                <button type="button" className={styles.toolbarButton} onClick={() => dispatch({ type: 'split-clip', clipId: selectedClip?.id ?? '', atMs: state.playheadMs })} disabled={!selectedClip}>
-                  <Scissors size={14} />
-                  Split
-                </button>
-                <button type="button" className={styles.toolbarButton} onClick={() => dispatch({ type: 'set-selected-clips-muted', muted: !Boolean(selectedClip?.muted) })} disabled={!selectedClip}>
-                  {selectedClip?.muted ? <Volume2 size={14} /> : <VolumeX size={14} />}
-                  {selectedClip?.muted ? 'Unmute' : 'Mute'}
-                </button>
-                <button type="button" className={styles.toolbarButton} onClick={() => dispatch({ type: 'delete-selected-clips' })} disabled={!selectedClip}>
-                  <Trash2 size={14} />
-                  Delete
-                </button>
-                <button type="button" className={styles.toolbarButton} onClick={() => dispatch({ type: 'add-track' })}>
-                  <Plus size={14} />
-                  Track
-                </button>
+                <Tooltip content="Split the selected clip at the playhead" shortcut="S" disabled={!selectedClip}>
+                  <button type="button" className={styles.toolbarButton} onClick={() => dispatch({ type: 'split-clip', clipId: selectedClip?.id ?? '', atMs: state.playheadMs })} disabled={!selectedClip}>
+                    <Scissors size={14} />
+                    Split
+                  </button>
+                </Tooltip>
+                <Tooltip content={selectedClip?.muted ? 'Restore audio on the selected clip' : 'Mute audio on the selected clip'} shortcut="M" disabled={!selectedClip}>
+                  <button type="button" className={styles.toolbarButton} onClick={() => dispatch({ type: 'set-selected-clips-muted', muted: !Boolean(selectedClip?.muted) })} disabled={!selectedClip}>
+                    {selectedClip?.muted ? <Volume2 size={14} /> : <VolumeX size={14} />}
+                    {selectedClip?.muted ? 'Unmute' : 'Mute'}
+                  </button>
+                </Tooltip>
+                <Tooltip content="Delete the selected clip from the timeline" shortcut="Delete" disabled={!selectedClip}>
+                  <button type="button" className={styles.toolbarButton} onClick={() => dispatch({ type: 'delete-selected-clips' })} disabled={!selectedClip}>
+                    <Trash2 size={14} />
+                    Delete
+                  </button>
+                </Tooltip>
+                <Tooltip content="Add a new empty track to the timeline">
+                  <button type="button" className={styles.toolbarButton} onClick={() => dispatch({ type: 'add-track' })}>
+                    <Plus size={14} />
+                    Track
+                  </button>
+                </Tooltip>
               </div>
             </div>
 

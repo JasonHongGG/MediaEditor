@@ -178,6 +178,7 @@ export const YoutubeDownloader: React.FC = () => {
           onClick={handleAnalyze} 
           loading={isAnalyzing}
           disabled={!url}
+          tooltip="Analyze the pasted URL and load available download options"
         >
           Analyze
         </Button>
@@ -272,6 +273,7 @@ export const YoutubeDownloader: React.FC = () => {
                       onClick={handleDownload} 
                       className={styles.downloadBtn}
                       icon={<FolderOpen size={18} />}
+                      tooltip={`Download the ${mode === 'video' ? 'video' : 'audio'} with the selected format and quality`}
                     >
                       Download {mode === 'video' ? 'Video' : 'Audio'}
                     </Button>

@@ -2,6 +2,7 @@ import React from 'react';
 import { getCurrentWindow } from '@tauri-apps/api/window';
 import { Minus, X, Download, Scissors } from 'lucide-react';
 import { motion } from 'framer-motion';
+import { Tooltip } from '../Tooltip/Tooltip';
 import styles from './Header.module.css';
 
 export type Tab = 'youtube' | 'editor';
@@ -50,12 +51,16 @@ export const Header: React.FC<HeaderProps> = ({ activeTab, onTabChange }) => {
       </div>
 
       <div className={styles.right}>
-        <button className={styles.controlBtn} onClick={minimize} title="Minimize">
-          <Minus size={14} />
-        </button>
-        <button className={`${styles.controlBtn} ${styles.closeBtn}`} onClick={close} title="Close">
-          <X size={14} />
-        </button>
+        <Tooltip content="Minimize window">
+          <button className={styles.controlBtn} onClick={minimize} aria-label="Minimize window">
+            <Minus size={14} />
+          </button>
+        </Tooltip>
+        <Tooltip content="Close application" position="left">
+          <button className={`${styles.controlBtn} ${styles.closeBtn}`} onClick={close} aria-label="Close application">
+            <X size={14} />
+          </button>
+        </Tooltip>
       </div>
     </div>
   );

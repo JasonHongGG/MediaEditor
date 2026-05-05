@@ -377,7 +377,7 @@
 .stickyCell {
   position: sticky;
   left: 0;
-  z-index: 3;
+  z-index: 6;
   background: #171a20;
   border-right: 1px solid rgba(255, 255, 255, 0.08);
   border-bottom: 1px solid rgba(255, 255, 255, 0.06);
