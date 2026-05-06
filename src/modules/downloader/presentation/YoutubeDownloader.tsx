@@ -12,7 +12,11 @@ import {
 } from '../application/useYoutubeDownloader'
 import styles from './YoutubeDownloader.module.css'
 
-export const YoutubeDownloader: React.FC = () => {
+interface YoutubeDownloaderProps {
+  isActive?: boolean
+}
+
+export const YoutubeDownloader: React.FC<YoutubeDownloaderProps> = () => {
   const {
     url,
     setUrl,

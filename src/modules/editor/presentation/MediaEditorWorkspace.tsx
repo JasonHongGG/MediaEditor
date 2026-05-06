@@ -66,6 +66,10 @@ const LABEL_WIDTH_PX = 188;
 const RULER_STEP_CANDIDATES_MS = [1, 2, 5, 10, 20, 50, 100, 250, 500, 1000, 2000, 5000, 10000, 15000, 30000, 60000, 120000, 300000];
 const MIN_TIMELINE_PADDING_MS = 60000;
 
+interface MediaEditorWorkspaceProps {
+  isActive?: boolean;
+}
+
 type SourceDragState = {
   assetId: string;
   pointerId: number;
@@ -116,7 +120,7 @@ function rulerStepForZoom(zoom: number) {
   );
 }
 
-export const MediaEditorWorkspace: React.FC = () => {
+export const MediaEditorWorkspace: React.FC<MediaEditorWorkspaceProps> = ({ isActive = true }) => {
   const [state, dispatch] = useReducer(editorReducer, initialEditorState);
   const [projectFeedback, setProjectFeedback] = useState<string | null>(null);
   const [importFeedback, setImportFeedback] = useState<string | null>(null);
@@ -364,6 +368,10 @@ export const MediaEditorWorkspace: React.FC = () => {
   }, [fitZoom, state.clips.length, state.zoom, timelineViewportWidth]);
 
   useEffect(() => {
+    if (!isActive) {
+      return undefined;
+    }
+
     const handleKeyDown = (event: KeyboardEvent) => {
       const targetTagName = (event.target as HTMLElement | null)?.tagName;
       if (targetTagName === 'INPUT' || targetTagName === 'TEXTAREA') {
@@ -390,7 +398,7 @@ export const MediaEditorWorkspace: React.FC = () => {
 
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [selectedClip, togglePlay]);
+  }, [isActive, selectedClip, togglePlay]);
 
   useEffect(() => {
     if (!sourceDrag) {
@@ -585,6 +593,10 @@ export const MediaEditorWorkspace: React.FC = () => {
   }, [dispatch]);
 
   useEffect(() => {
+    if (!isActive) {
+      return undefined;
+    }
+
     let disposed = false;
     let unlisten: (() => void) | null = null;
 
@@ -601,6 +613,9 @@ export const MediaEditorWorkspace: React.FC = () => {
         }
 
         setIsExternalDropActive(false);
+        if (event.payload.paths.length === 0) {
+          return;
+        }
         void importMediaPaths(event.payload.paths);
       })
       .then((cleanup) => {
@@ -619,7 +634,15 @@ export const MediaEditorWorkspace: React.FC = () => {
       disposed = true;
       unlisten?.();
     };
-  }, [importMediaPaths]);
+  }, [importMediaPaths, isActive]);
+
+  useEffect(() => {
+    if (isActive || !state.isPlaying) {
+      return;
+    }
+
+    stopPlayback();
+  }, [isActive, state.isPlaying, stopPlayback]);
 
   const ensureCanDiscard = () => {
     if (!state.dirty) {
@@ -810,6 +833,8 @@ export const MediaEditorWorkspace: React.FC = () => {
       return;
     }
 
+    event.preventDefault();
+
     const bounds = event.currentTarget.getBoundingClientRect();
     setSourceDrag({
       assetId,
@@ -996,7 +1021,9 @@ export const MediaEditorWorkspace: React.FC = () => {
                 <button
                   type="button"
                   className={styles.assetDragButton}
+                  draggable={false}
                   onPointerDown={(event) => handleSourcePointerDown(event, asset.id)}
+                  onDragStart={(event) => event.preventDefault()}
                   onDoubleClick={() => {
                     if (asset.status !== 'ready' || sortedTracks.length === 0) {
                       return;
@@ -1012,7 +1039,7 @@ export const MediaEditorWorkspace: React.FC = () => {
                 >
                   <div className={styles.assetVisual}>
                     {asset.thumbnailUrl ? (
-                      <img src={asset.thumbnailUrl} alt={asset.name} />
+                      <img src={asset.thumbnailUrl} alt={asset.name} draggable={false} />
                     ) : (
                       <div className={styles.assetFallback}>
                         {asset.kind === 'video' ? <Film size={16} /> : <Music2 size={16} />}
