@@ -1,4 +1,4 @@
-import React, { useEffect, useEffectEvent, useLayoutEffect, useMemo, useReducer, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useLayoutEffect, useMemo, useReducer, useRef, useState } from 'react';
 import { getCurrentWebview } from '@tauri-apps/api/webview';
 import { open, save } from '@tauri-apps/plugin-dialog';
 import {
@@ -27,7 +27,6 @@ import {
   buildDefaultProjectState,
   clamp,
   clipDurationMs,
-  clipEndMs,
   DEFAULT_PROJECT_NAME,
   DEFAULT_ZOOM,
   MAX_ZOOM,
@@ -52,7 +51,12 @@ import { createLogger, getErrorMessage, serializeError } from '../../utils/logge
 import { openExportWindow } from './exportApi';
 import { preparePendingExportSession } from './exportSession';
 import { sortTracksDescending } from './timelineCommands';
-import { usePlaybackController } from './usePlaybackController';
+import {
+  getPlaybackPreviewState,
+  type PlaybackPreviewState,
+  type PlaybackTimelineEntry,
+  usePlaybackController,
+} from './usePlaybackController';
 import styles from './MediaEditorWorkspace.module.css';
 
 const log = createLogger('MediaEditorWorkspace');
@@ -115,9 +119,9 @@ function rulerStepForZoom(zoom: number) {
 export const MediaEditorWorkspace: React.FC = () => {
   const [state, dispatch] = useReducer(editorReducer, initialEditorState);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
-  const [_statusMessage, setStatusMessage] = useState<string | null>(null);
-  const [_isImporting, setIsImporting] = useState(false);
-  const [_isProjectLoading, setIsProjectLoading] = useState(false);
+  const [, setStatusMessage] = useState<string | null>(null);
+  const [, setIsImporting] = useState(false);
+  const [, setIsProjectLoading] = useState(false);
   const [isExternalDropActive, setIsExternalDropActive] = useState(false);
   const [timelineViewportWidth, setTimelineViewportWidth] = useState(0);
   const [sourceDrag, setSourceDrag] = useState<SourceDragState | null>(null);
@@ -128,9 +132,16 @@ export const MediaEditorWorkspace: React.FC = () => {
   const zoomRef = useRef(state.zoom);
   const pendingZoomAnchorRef = useRef<{ anchorMs: number; viewportX: number } | null>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
+  const timelineCanvasRef = useRef<HTMLDivElement>(null);
   const previewVideoRef = useRef<HTMLVideoElement>(null);
+  const currentTimecodeRef = useRef<HTMLSpanElement>(null);
   const audioRefs = useRef(new Map<string, HTMLAudioElement>());
+  const livePlayheadMsRef = useRef(state.playheadMs);
   const [timelineScrollLeft, setTimelineScrollLeft] = useState(0);
+  const [livePreviewState, setLivePreviewState] = useState<PlaybackPreviewState>({
+    previewAsset: null,
+    hasActiveVideo: false,
+  });
 
   const sortedTracks = useMemo(() => sortTracksDescending(state.tracks), [state.tracks]);
   const assetMap = useMemo(() => new Map(state.assets.map((asset) => [asset.id, asset])), [state.assets]);
@@ -171,41 +182,63 @@ export const MediaEditorWorkspace: React.FC = () => {
     () => state.clips.find((clip) => clip.id === state.selectedClipIds[0]) ?? null,
     [state.clips, state.selectedClipIds],
   );
-  const activeClips = useMemo(
-    () => state.clips.filter((clip) => state.playheadMs >= clip.startMs && state.playheadMs < clipEndMs(clip)),
-    [state.clips, state.playheadMs],
+  const trackOrderById = useMemo(
+    () => new Map(state.tracks.map((track) => [track.id, track.order])),
+    [state.tracks],
   );
-  const activeVideoEntry = useMemo(() => {
-    return [...activeClips]
-      .map((clip) => ({ clip, asset: assetMap.get(clip.assetId) ?? null }))
-      .filter((entry): entry is { clip: TimelineClip; asset: EditorAsset } => Boolean(entry.asset?.hasVideo && entry.asset.url))
-      .sort(
-        (left, right) =>
-          (state.tracks.find((track) => track.id === right.clip.trackId)?.order ?? 0)
-          - (state.tracks.find((track) => track.id === left.clip.trackId)?.order ?? 0),
-      )[0] ?? null;
-  }, [activeClips, assetMap, state.tracks]);
-  const activeAudioEntries = useMemo(() => {
-    return activeClips
-      .map((clip) => ({ clip, asset: assetMap.get(clip.assetId) ?? null }))
-      .filter(
-        (entry): entry is { clip: TimelineClip; asset: EditorAsset } =>
-          Boolean(entry.asset?.hasAudio && entry.asset.url) && !entry.clip.muted,
-      );
-  }, [activeClips, assetMap]);
-  const mountedAudioEntries = useMemo(() => {
+  const playbackEntries = useMemo(() => {
     return state.clips
-      .map((clip) => ({ clip, asset: assetMap.get(clip.assetId) ?? null }))
-      .filter(
-        (entry): entry is { clip: TimelineClip; asset: EditorAsset } =>
-          Boolean(entry.asset?.hasAudio && entry.asset.url),
-      );
-  }, [assetMap, state.clips]);
+      .map((clip) => {
+        const asset = assetMap.get(clip.assetId);
+        if (!asset?.url) {
+          return null;
+        }
+
+        return {
+          clip,
+          asset,
+          trackOrder: trackOrderById.get(clip.trackId) ?? 0,
+        } satisfies PlaybackTimelineEntry;
+      })
+      .filter((entry): entry is PlaybackTimelineEntry => Boolean(entry));
+  }, [assetMap, state.clips, trackOrderById]);
+  const mountedAudioEntries = useMemo(() => {
+    return playbackEntries.filter((entry) => entry.asset.hasAudio);
+  }, [playbackEntries]);
   const missingAssets = useMemo(
     () => state.assets.filter((asset) => asset.status === 'missing'),
     [state.assets],
   );
-  const previewAsset = activeVideoEntry?.asset ?? activeAudioEntries[0]?.asset ?? null;
+  const committedPreviewState = useMemo(
+    () => getPlaybackPreviewState(playbackEntries, state.playheadMs),
+    [playbackEntries, state.playheadMs],
+  );
+  const previewState = state.isPlaying ? livePreviewState : committedPreviewState;
+
+  const applyLiveTransportFrame = useCallback((playheadMs: number) => {
+    livePlayheadMsRef.current = playheadMs;
+
+    if (currentTimecodeRef.current) {
+      currentTimecodeRef.current.textContent = formatTransportTime(playheadMs);
+    }
+
+    if (timelineCanvasRef.current) {
+      timelineCanvasRef.current.style.setProperty('--playhead-left', `${msToPx(playheadMs, zoomRef.current)}px`);
+    }
+  }, []);
+
+  const handlePreviewChange = useCallback((nextPreviewState: PlaybackPreviewState) => {
+    setLivePreviewState((currentPreviewState) => {
+      if (
+        currentPreviewState.hasActiveVideo === nextPreviewState.hasActiveVideo
+        && currentPreviewState.previewAsset?.id === nextPreviewState.previewAsset?.id
+      ) {
+        return currentPreviewState;
+      }
+
+      return nextPreviewState;
+    });
+  }, []);
 
   const { togglePlay, seekBy, seekTo, stopPlayback } = usePlaybackController({
     isPlaying: state.isPlaying,
@@ -213,11 +246,12 @@ export const MediaEditorWorkspace: React.FC = () => {
     timelineDurationMs,
     previewVolume: state.previewVolume,
     previewMuted: state.previewMuted,
-    activeVideoEntry,
-    activeAudioEntries,
+    playbackEntries,
     videoRef: previewVideoRef,
     audioRefs,
     dispatch,
+    onTransportFrame: applyLiveTransportFrame,
+    onPreviewChange: handlePreviewChange,
   });
 
   useEffect(() => {
@@ -227,6 +261,10 @@ export const MediaEditorWorkspace: React.FC = () => {
   useEffect(() => {
     zoomRef.current = state.zoom;
   }, [state.zoom]);
+
+  useEffect(() => {
+    applyLiveTransportFrame(livePlayheadMsRef.current);
+  }, [applyLiveTransportFrame, state.zoom, timelineWidthPx]);
 
   useEffect(() => {
     const scroller = scrollRef.current;
@@ -256,7 +294,7 @@ export const MediaEditorWorkspace: React.FC = () => {
     };
   }, []);
 
-  const handleTimelineWheelZoom = useEffectEvent((event: WheelEvent) => {
+  const handleTimelineWheelZoom = useCallback((event: WheelEvent) => {
     if (!event.ctrlKey) {
       return;
     }
@@ -283,7 +321,7 @@ export const MediaEditorWorkspace: React.FC = () => {
     zoomRef.current = nextZoom;
     pendingZoomAnchorRef.current = { anchorMs, viewportX: cursorX };
     dispatch({ type: 'set-zoom', zoom: nextZoom });
-  });
+  }, [dispatch, timelineVisibleWidthPx]);
 
   useEffect(() => {
     const scroller = scrollRef.current;
@@ -342,7 +380,7 @@ export const MediaEditorWorkspace: React.FC = () => {
       }
 
       if (event.key.toLowerCase() === 's' && selectedClip) {
-        dispatch({ type: 'split-clip', clipId: selectedClip.id, atMs: state.playheadMs });
+        dispatch({ type: 'split-clip', clipId: selectedClip.id, atMs: livePlayheadMsRef.current });
       }
 
       if (event.key.toLowerCase() === 'm' && selectedClip) {
@@ -352,7 +390,7 @@ export const MediaEditorWorkspace: React.FC = () => {
 
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [selectedClip, state.playheadMs, togglePlay]);
+  }, [selectedClip, togglePlay]);
 
   useEffect(() => {
     if (!sourceDrag) {
@@ -511,7 +549,7 @@ export const MediaEditorWorkspace: React.FC = () => {
     };
   }, [assetMap, interaction, state.clips, state.zoom]);
 
-  const importMediaPaths = useEffectEvent(async (paths: string[]) => {
+  const importMediaPaths = useCallback(async (paths: string[]) => {
     const filtered = [...new Set(paths)].filter(isSupportedMediaPath);
     if (filtered.length === 0) {
       setErrorMessage('No supported video or audio files were selected.');
@@ -547,7 +585,7 @@ export const MediaEditorWorkspace: React.FC = () => {
     } finally {
       setIsImporting(false);
     }
-  });
+  }, [dispatch]);
 
   useEffect(() => {
     let disposed = false;
@@ -682,7 +720,10 @@ export const MediaEditorWorkspace: React.FC = () => {
         documentPath = selectedPath;
       }
 
-      const nextDocument = toProjectDocument(state);
+      const nextDocument = toProjectDocument({
+        ...state,
+        playheadMs: livePlayheadMsRef.current,
+      });
       nextDocument.name = projectNameFromPath(documentPath);
       await saveProjectDocument(documentPath, nextDocument);
       dispatch({
@@ -967,7 +1008,7 @@ export const MediaEditorWorkspace: React.FC = () => {
                       type: 'insert-clip',
                       assetId: asset.id,
                       trackId: sortedTracks[0].id,
-                      startMs: state.playheadMs,
+                      startMs: livePlayheadMsRef.current,
                     });
                   }}
                   disabled={asset.status !== 'ready'}
@@ -1010,17 +1051,22 @@ export const MediaEditorWorkspace: React.FC = () => {
         <main className={styles.mainPanel}>
           <section className={styles.previewPanel}>
             <div className={styles.previewContainer}>
-              {activeVideoEntry?.asset.url ? (
-                <video ref={previewVideoRef} className={styles.previewVideo} muted playsInline preload="auto" />
-              ) : (
+              <video
+                ref={previewVideoRef}
+                className={`${styles.previewVideo} ${!previewState.hasActiveVideo ? styles.previewVideoHidden : ''}`}
+                muted
+                playsInline
+                preload="auto"
+              />
+              {!previewState.hasActiveVideo && (
                 <div className={styles.previewPlaceholder}>
-                  {previewAsset?.kind === 'audio' ? <Music2 size={32} /> : <Film size={32} />}
+                  {previewState.previewAsset?.kind === 'audio' ? <Music2 size={32} /> : <Film size={32} />}
                 </div>
               )}
 
               <div className={styles.transportOverlay}>
                 <div className={styles.transportTime}>
-                  <span className={styles.timecode}>{formatTransportTime(state.playheadMs)}</span>
+                  <span ref={currentTimecodeRef} className={styles.timecode}>{formatTransportTime(state.playheadMs)}</span>
                   <span className={styles.timecodeDivider}>/</span>
                   <span className={styles.timecodeDuration}>{formatTransportTime(timelineDurationMs)}</span>
                 </div>
@@ -1069,7 +1115,7 @@ export const MediaEditorWorkspace: React.FC = () => {
           <section className={styles.timelinePanel}>
             <div className={styles.panelHeader}>
               <div className={styles.timelineActions}>
-                <button type="button" className={styles.iconButton} onClick={() => dispatch({ type: 'split-clip', clipId: selectedClip?.id ?? '', atMs: state.playheadMs })} disabled={!selectedClip}>
+                <button type="button" className={styles.iconButton} onClick={() => dispatch({ type: 'split-clip', clipId: selectedClip?.id ?? '', atMs: livePlayheadMsRef.current })} disabled={!selectedClip}>
                   <Scissors size={14} />
                 </button>
                 <button type="button" className={styles.iconButton} onClick={() => dispatch({ type: 'delete-selected-clips' })} disabled={!selectedClip}>
@@ -1084,7 +1130,14 @@ export const MediaEditorWorkspace: React.FC = () => {
             </div>
 
             <div className={styles.timelineScroller} ref={scrollRef}>
-              <div className={styles.timelineCanvas} style={{ width: `${LABEL_WIDTH_PX + timelineWidthPx}px` }}>
+              <div
+                ref={timelineCanvasRef}
+                className={styles.timelineCanvas}
+                style={{
+                  width: `${LABEL_WIDTH_PX + timelineWidthPx}px`,
+                  '--playhead-left': `${msToPx(state.playheadMs, state.zoom)}px`,
+                } as React.CSSProperties}
+              >
                 <div className={styles.rulerRow}>
                   <div className={styles.stickyCell}>Tracks</div>
                   <button type="button" className={styles.rulerSurface} onPointerDown={handleTimelineSeek}>
@@ -1093,7 +1146,7 @@ export const MediaEditorWorkspace: React.FC = () => {
                         <span>{formatRulerLabel(tickMs)}</span>
                       </div>
                     ))}
-                    <div className={styles.playhead} style={{ left: `${msToPx(state.playheadMs, state.zoom)}px` }} />
+                    <div className={styles.playhead} />
                   </button>
                 </div>
 
@@ -1120,7 +1173,7 @@ export const MediaEditorWorkspace: React.FC = () => {
                       onPointerDown={handleTimelineSeek}
                       style={{ '--grid-step': `${msToPx(rulerStepMs, state.zoom)}px` } as React.CSSProperties}
                     >
-                      <div className={styles.playhead} style={{ left: `${msToPx(state.playheadMs, state.zoom)}px` }} />
+                      <div className={styles.playhead} />
                       {clipsByTrack.get(track.id)?.map(({ clip, leftPx, widthPx }) => {
                         const asset = assetMap.get(clip.assetId);
                         if (!asset) {
