@@ -115,9 +115,9 @@ function rulerStepForZoom(zoom: number) {
 export const MediaEditorWorkspace: React.FC = () => {
   const [state, dispatch] = useReducer(editorReducer, initialEditorState);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
-  const [statusMessage, setStatusMessage] = useState<string | null>(null);
-  const [isImporting, setIsImporting] = useState(false);
-  const [isProjectLoading, setIsProjectLoading] = useState(false);
+  const [_statusMessage, setStatusMessage] = useState<string | null>(null);
+  const [_isImporting, setIsImporting] = useState(false);
+  const [_isProjectLoading, setIsProjectLoading] = useState(false);
   const [isExternalDropActive, setIsExternalDropActive] = useState(false);
   const [timelineViewportWidth, setTimelineViewportWidth] = useState(0);
   const [sourceDrag, setSourceDrag] = useState<SourceDragState | null>(null);
@@ -206,13 +206,6 @@ export const MediaEditorWorkspace: React.FC = () => {
     [state.assets],
   );
   const previewAsset = activeVideoEntry?.asset ?? activeAudioEntries[0]?.asset ?? null;
-  const previewTitle = previewAsset?.name
-    ?? (state.assets.length === 0 ? 'Import media to begin' : 'Move the playhead onto a clip');
-  const previewSubtitle = activeVideoEntry
-    ? 'Video clip at playhead'
-    : activeAudioEntries[0]
-      ? 'Audio clip at playhead'
-      : 'No clip under the playhead';
 
   const { togglePlay, seekBy, seekTo, stopPlayback } = usePlaybackController({
     isPlaying: state.isPlaying,
