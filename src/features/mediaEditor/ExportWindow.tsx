@@ -2,8 +2,8 @@ import React from 'react';
 import { listen } from '@tauri-apps/api/event';
 import { getCurrentWindow } from '@tauri-apps/api/window';
 import { save } from '@tauri-apps/plugin-dialog';
+import { motion, AnimatePresence } from 'framer-motion';
 import {
-  AlertCircle,
   CheckCircle2,
   FileOutput,
   FolderOpen,
@@ -11,8 +11,9 @@ import {
   Music4,
   RefreshCcw,
   Video,
-  Waves,
   X,
+  Settings2,
+  AlertTriangle,
 } from 'lucide-react';
 import { createLogger, getErrorMessage, serializeError } from '../../utils/logger';
 import { getPendingExportSession, processTimelineExport } from './exportApi';
@@ -25,6 +26,7 @@ import type {
 } from './exportTypes';
 import { formatTransportTime } from './model';
 import styles from './ExportWindow.module.css';
+import { Select } from '../../components/Select/Select';
 
 type ExportStatus = 'loading' | 'idle' | 'running' | 'done' | 'error';
 const log = createLogger('ExportWindow');
@@ -32,14 +34,13 @@ const log = createLogger('ExportWindow');
 const FORMAT_OPTIONS: Array<{
   value: ExportFormat;
   label: string;
-  description: string;
   kind: 'video' | 'audio';
 }> = [
-  { value: 'mp4', label: 'MP4', description: 'H.264 video container', kind: 'video' },
-  { value: 'mkv', label: 'MKV', description: 'Matroska archive', kind: 'video' },
-  { value: 'mp3', label: 'MP3', description: 'Compressed audio', kind: 'audio' },
-  { value: 'm4a', label: 'M4A', description: 'AAC audio container', kind: 'audio' },
-  { value: 'wav', label: 'WAV', description: 'PCM lossless audio', kind: 'audio' },
+  { value: 'mp4', label: 'MP4', kind: 'video' },
+  { value: 'mkv', label: 'MKV', kind: 'video' },
+  { value: 'mp3', label: 'MP3', kind: 'audio' },
+  { value: 'm4a', label: 'M4A', kind: 'audio' },
+  { value: 'wav', label: 'WAV', kind: 'audio' },
 ];
 
 const VIDEO_QUALITY_OPTIONS: VideoQuality[] = ['source', '2160p', '1440p', '1080p', '720p', '480p'];
@@ -88,7 +89,7 @@ export const ExportWindow: React.FC = () => {
       setFormat((current) => (current ? current : defaultFormatForSession(nextSession)));
       if (!nextSession) {
         setStatus('error');
-        setErrorMessage('No timeline is queued for export yet. Open export again from the main editor.');
+        setErrorMessage('No timeline is queued for export yet.');
         return;
       }
 
@@ -111,14 +112,7 @@ export const ExportWindow: React.FC = () => {
     let removeProgressListener: (() => void) | undefined;
 
     void listen<PendingExportSession>('editor/export-session-updated', (event) => {
-      if (disposed) {
-        return;
-      }
-
-      log.info('Received export session update event.', {
-        projectName: event.payload.projectName,
-        clipCount: event.payload.clips.length,
-      });
+      if (disposed) return;
       setSession(event.payload);
       setFormat(defaultFormatForSession(event.payload));
       setOutputPath('');
@@ -130,17 +124,11 @@ export const ExportWindow: React.FC = () => {
     });
 
     void listen<ExportProgressPayload>('editor/export-progress', (event) => {
-      if (disposed) {
-        return;
-      }
-
+      if (disposed) return;
       const nextProgress = {
         ...event.payload,
         progress: Math.max(0, Math.min(1, event.payload.progress)),
       };
-
-      log.info('Received export progress event.', nextProgress);
-
       setProgress(nextProgress);
 
       if (nextProgress.failed) {
@@ -148,13 +136,11 @@ export const ExportWindow: React.FC = () => {
         setErrorMessage(nextProgress.detail);
         return;
       }
-
       if (nextProgress.done) {
         setStatus('done');
         setErrorMessage(null);
         return;
       }
-
       setStatus('running');
     }).then((unlisten) => {
       removeProgressListener = unlisten;
@@ -171,17 +157,10 @@ export const ExportWindow: React.FC = () => {
     const selectedPath = await save({
       title: 'Export timeline',
       defaultPath: outputPath || suggestedFilename(session, format),
-      filters: [
-        {
-          name: format.toUpperCase(),
-          extensions: [format],
-        },
-      ],
+      filters: [{ name: format.toUpperCase(), extensions: [format] }],
     });
 
-    if (!selectedPath) {
-      return null;
-    }
+    if (!selectedPath) return null;
 
     const normalizedPath = selectedPath.toLowerCase().endsWith(`.${format}`)
       ? selectedPath
@@ -191,9 +170,7 @@ export const ExportWindow: React.FC = () => {
   }, [format, outputPath, session]);
 
   const handleExport = React.useCallback(async () => {
-    if (!session || status === 'running') {
-      return;
-    }
+    if (!session || status === 'running') return;
 
     setErrorMessage(null);
     setStatus('running');
@@ -221,11 +198,6 @@ export const ExportWindow: React.FC = () => {
         session,
       });
     } catch (error) {
-      log.error('Export failed.', {
-        error: serializeError(error),
-        format,
-        outputPath,
-      });
       const message = getErrorMessage(error, 'Export failed.');
       setStatus('error');
       setErrorMessage(message);
@@ -239,177 +211,212 @@ export const ExportWindow: React.FC = () => {
     }
   }, [audioBitrateKbps, format, outputPath, pickOutputPath, session, status, videoQuality]);
 
-  return (
-    <div className={styles.window}>
-      <header className={styles.header}>
-        <div>
-          <div className={styles.eyebrow}>Export</div>
-          <h1>Render timeline</h1>
-          <p>Create a final video or audio file in a dedicated export window.</p>
-        </div>
+  const handleClose = async () => {
+    await getCurrentWindow().close();
+  };
 
-        <button type="button" className={styles.iconButton} onClick={() => void getCurrentWindow().close()}>
+  return (
+    <div className={styles.windowContainer}>
+      <header className={styles.titlebar} data-tauri-drag-region>
+        <div className={styles.titlebarLeft} data-tauri-drag-region>
+          <Settings2 size={16} />
+          <span>Export Options</span>
+        </div>
+        <button className={styles.closeButton} onClick={handleClose}>
           <X size={16} />
         </button>
       </header>
 
-      {!session ? (
-        <section className={styles.emptyState}>
-          <AlertCircle size={18} />
-          <strong>{errorMessage ?? 'No pending timeline export.'}</strong>
-          <button type="button" className={styles.secondaryButton} onClick={() => void refreshSession()}>
-            <RefreshCcw size={15} />
-            Refresh
-          </button>
-        </section>
-      ) : (
-        <div className={styles.grid}>
-          <section className={styles.panel}>
-            <div className={styles.panelHeader}>
-              <div>
-                <div className={styles.panelTitle}>Output format</div>
-                <p>Choose the final container and compression settings.</p>
+      <main className={styles.mainContent}>
+        <AnimatePresence mode="wait">
+          {!session ? (
+            <motion.div
+              key="empty"
+              initial={{ opacity: 0, y: 10 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -10 }}
+              className={styles.emptyState}
+            >
+              <div className={styles.iconCircle}>
+                <AlertTriangle size={24} />
               </div>
-            </div>
+              <p>{errorMessage ?? 'No pending timeline export.'}</p>
+              <button className={styles.outlineBtn} onClick={() => void refreshSession()}>
+                <RefreshCcw size={14} /> Refresh
+              </button>
+            </motion.div>
+          ) : (
+            <motion.div
+              key="content"
+              initial={{ opacity: 0, y: 10 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -10 }}
+              className={styles.contentLayout}
+            >
+              {/* Top Section: Overview */}
+              <div className={styles.sessionOverview}>
+                <div className={styles.projectName}>{session.projectName}</div>
+                <div className={styles.metaRow}>
+                  <div className={styles.metaBadge}>
+                    <Video size={14} />
+                    {session.dominantWidth && session.dominantHeight
+                      ? `${session.dominantWidth}x${session.dominantHeight}`
+                      : 'Audio'}
+                  </div>
+                  <div className={styles.metaBadge}>
+                    <Music4 size={14} />
+                    {formatTransportTime(session.timelineDurationMs)}
+                  </div>
+                  <div className={styles.metaBadge}>
+                    {session.clips.length} Clips
+                  </div>
+                </div>
+              </div>
 
-            <div className={styles.optionGrid}>
-              {FORMAT_OPTIONS.map((option) => (
-                <button
-                  key={option.value}
-                  type="button"
-                  className={`${styles.optionCard} ${format === option.value ? styles.optionCardActive : ''}`}
-                  onClick={() => setFormat(option.value)}
-                >
-                  <span className={styles.optionIcon}>
-                    {option.kind === 'video' ? <Video size={16} /> : <Music4 size={16} />}
-                  </span>
-                  <strong>{option.label}</strong>
-                  <span>{option.description}</span>
-                </button>
-              ))}
-            </div>
-
-            {isVideoOutput ? (
-              <div className={styles.fieldBlock}>
-                <label className={styles.fieldLabel} htmlFor="video-quality">Video quality</label>
-                <select
-                  id="video-quality"
-                  className={styles.selectField}
-                  value={videoQuality}
-                  onChange={(event) => setVideoQuality(event.target.value as VideoQuality)}
-                >
-                  {VIDEO_QUALITY_OPTIONS.map((option) => (
-                    <option key={option} value={option}>
-                      {option === 'source' ? 'Source resolution' : option}
-                    </option>
-                  ))}
-                </select>
-              </div>
-            ) : (
-              <div className={styles.fieldBlock}>
-                <label className={styles.fieldLabel} htmlFor="audio-bitrate">Audio bitrate</label>
-                <select
-                  id="audio-bitrate"
-                  className={styles.selectField}
-                  value={audioBitrateKbps}
-                  onChange={(event) => setAudioBitrateKbps(Number(event.target.value) as AudioBitrateKbps)}
-                  disabled={!usesAudioBitrate}
-                >
-                  {AUDIO_BITRATE_OPTIONS.map((option) => (
-                    <option key={option} value={option}>
-                      {option} kbps
-                    </option>
-                  ))}
-                </select>
-                {!usesAudioBitrate && <span className={styles.helperText}>WAV exports use lossless PCM audio and ignore kbps.</span>}
-              </div>
-            )}
-
-            <div className={styles.fieldBlock}>
-              <label className={styles.fieldLabel} htmlFor="output-path">Save to</label>
-              <div className={styles.pathField}>
-                <input
-                  id="output-path"
-                  type="text"
-                  placeholder={suggestedFilename(session, format)}
-                  value={outputPath}
-                  onChange={(event) => setOutputPath(event.target.value)}
-                />
-                <button type="button" className={styles.iconButton} onClick={() => void pickOutputPath()}>
-                  <FolderOpen size={16} />
-                </button>
-              </div>
-            </div>
-          </section>
-
-          <section className={styles.panel}>
-            <div className={styles.panelHeader}>
-              <div>
-                <div className={styles.panelTitle}>Session summary</div>
-                <p>{session.projectName}</p>
-              </div>
-            </div>
-
-            <div className={styles.summaryGrid}>
-              <div className={styles.summaryCard}>
-                <span>Duration</span>
-                <strong>{formatTransportTime(session.timelineDurationMs)}</strong>
-              </div>
-              <div className={styles.summaryCard}>
-                <span>Clips</span>
-                <strong>{session.clips.length}</strong>
-              </div>
-              <div className={styles.summaryCard}>
-                <span>Tracks</span>
-                <strong>{session.tracks.length}</strong>
-              </div>
-              <div className={styles.summaryCard}>
-                <span>Resolution</span>
-                <strong>
-                  {session.dominantWidth && session.dominantHeight
-                    ? `${session.dominantWidth} x ${session.dominantHeight}`
-                    : 'Audio only'}
-                </strong>
-              </div>
-            </div>
-
-            <div className={styles.progressCard}>
-              <div className={styles.progressHeader}>
-                <div>
-                  <span>Status</span>
-                  <strong>{status === 'done' ? 'Completed' : status === 'running' ? 'Rendering' : 'Ready'}</strong>
+              {/* Form Settings */}
+              <div className={styles.settingsPanel}>
+                <div className={styles.settingGroup}>
+                  <label>Format</label>
+                  <div className={styles.formatSelector}>
+                    {FORMAT_OPTIONS.map((opt) => {
+                      const isActive = format === opt.value;
+                      return (
+                        <button
+                          key={opt.value}
+                          onClick={() => setFormat(opt.value)}
+                          className={`${styles.formatPill} ${isActive ? styles.active : ''}`}
+                        >
+                          {isActive && (
+                            <motion.div
+                              layoutId="formatPillBg"
+                              className={styles.pillBg}
+                              initial={false}
+                              transition={{ type: 'spring', stiffness: 400, damping: 30 }}
+                            />
+                          )}
+                          <span className={styles.pillText}>{opt.label}</span>
+                        </button>
+                      );
+                    })}
+                  </div>
                 </div>
 
-                {status === 'running' ? <LoaderCircle size={16} className={styles.spinning} /> : null}
-                {status === 'done' ? <CheckCircle2 size={16} className={styles.successIcon} /> : null}
+                <div className={styles.settingGroup}>
+                  <label>{isVideoOutput ? 'Quality' : 'Bitrate'}</label>
+                  {isVideoOutput ? (
+                    <div className={styles.selectWrapper}>
+                      <Select
+                        value={videoQuality}
+                        onChange={(val) => setVideoQuality(val as VideoQuality)}
+                        options={VIDEO_QUALITY_OPTIONS.map((opt) => ({
+                          value: opt,
+                          label: opt === 'source' ? 'Source' : opt,
+                        }))}
+                      />
+                    </div>
+                  ) : (
+                    <div className={styles.selectWrapper}>
+                      <Select
+                        value={audioBitrateKbps.toString()}
+                        onChange={(val) => setAudioBitrateKbps(Number(val) as AudioBitrateKbps)}
+                        disabled={!usesAudioBitrate}
+                        options={AUDIO_BITRATE_OPTIONS.map((opt) => ({
+                          value: opt.toString(),
+                          label: `${opt} kbps`,
+                        }))}
+                      />
+                    </div>
+                  )}
+                </div>
+
+                <div className={styles.settingGroup}>
+                  <label>Save to</label>
+                  <div className={styles.pathInputGroup}>
+                    <input
+                      type="text"
+                      placeholder={suggestedFilename(session, format)}
+                      value={outputPath}
+                      onChange={(e) => setOutputPath(e.target.value)}
+                      className={styles.pathInput}
+                    />
+                    <button className={styles.folderBtn} onClick={() => void pickOutputPath()}>
+                      <FolderOpen size={16} />
+                    </button>
+                  </div>
+                </div>
               </div>
 
-              <div className={styles.progressBar}>
-                <div className={styles.progressFill} style={{ width: `${Math.round(progress.progress * 100)}%` }} />
+              {/* Progress & Action */}
+              <div className={styles.actionPanel}>
+                <AnimatePresence mode="wait">
+                  {status === 'running' ? (
+                    <motion.div
+                      key="running"
+                      initial={{ opacity: 0, height: 0 }}
+                      animate={{ opacity: 1, height: 'auto' }}
+                      exit={{ opacity: 0, height: 0 }}
+                      className={styles.progressContainer}
+                    >
+                      <div className={styles.progressHeader}>
+                        <span className={styles.progressDetail}>{progress.detail}</span>
+                        <span className={styles.progressPercent}>{Math.round(progress.progress * 100)}%</span>
+                      </div>
+                      <div className={styles.progressBarBg}>
+                        <motion.div
+                          className={styles.progressBarFill}
+                          initial={{ width: 0 }}
+                          animate={{ width: `${progress.progress * 100}%` }}
+                          transition={{ ease: 'linear', duration: 0.2 }}
+                        />
+                      </div>
+                    </motion.div>
+                  ) : status === 'done' ? (
+                    <motion.div
+                      key="done"
+                      initial={{ opacity: 0, scale: 0.95 }}
+                      animate={{ opacity: 1, scale: 1 }}
+                      className={styles.successMessage}
+                    >
+                      <CheckCircle2 size={18} />
+                      <span>Export completed successfully</span>
+                    </motion.div>
+                  ) : status === 'error' && errorMessage ? (
+                    <motion.div
+                      key="error"
+                      initial={{ opacity: 0, scale: 0.95 }}
+                      animate={{ opacity: 1, scale: 1 }}
+                      className={styles.errorMessage}
+                    >
+                      <AlertTriangle size={16} />
+                      <span>{errorMessage}</span>
+                    </motion.div>
+                  ) : null}
+                </AnimatePresence>
+
+                <div className={styles.actionRow}>
+                  <button className={styles.secondaryBtn} onClick={handleClose}>
+                    Cancel
+                  </button>
+                  <motion.button
+                    className={styles.primaryBtn}
+                    onClick={() => void handleExport()}
+                    disabled={status === 'running'}
+                    whileHover={{ scale: status === 'running' ? 1 : 1.02 }}
+                    whileTap={{ scale: status === 'running' ? 1 : 0.98 }}
+                  >
+                    {status === 'running' ? (
+                      <LoaderCircle className={styles.spin} size={18} />
+                    ) : (
+                      <FileOutput size={18} />
+                    )}
+                    {status === 'running' ? 'Rendering...' : 'Export Media'}
+                  </motion.button>
+                </div>
               </div>
-
-              <div className={styles.progressDetail}>{progress.detail}</div>
-              {errorMessage && <div className={styles.errorCard}><AlertCircle size={14} /> {errorMessage}</div>}
-            </div>
-
-            <div className={styles.actions}>
-              <button type="button" className={styles.secondaryButton} onClick={() => void refreshSession()}>
-                <RefreshCcw size={15} />
-                Refresh
-              </button>
-              <button type="button" className={styles.primaryButton} onClick={() => void handleExport()} disabled={status === 'running'}>
-                <FileOutput size={16} />
-                {status === 'running' ? 'Exporting...' : 'Start Export'}
-              </button>
-            </div>
-
-            <div className={styles.notes}>
-              <div className={styles.note}><Video size={14} /> MP4 and MKV exports include video plus mixed timeline audio.</div>
-              <div className={styles.note}><Waves size={14} /> MP3, M4A and WAV export the mixed timeline audio only.</div>
-            </div>
-          </section>
-        </div>
-      )}
+            </motion.div>
+          )}
+        </AnimatePresence>
+      </main>
     </div>
   );
 };

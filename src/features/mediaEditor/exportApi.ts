@@ -101,14 +101,15 @@ export async function openExportWindow(session: PendingExportSession) {
   const exportWindow = new WebviewWindow(EXPORT_WINDOW_LABEL, {
     url: EXPORT_WINDOW_URL,
     title: 'Export Settings',
-    width: 960,
-    height: 760,
-    minWidth: 760,
+    width: 800,
+    height: 720,
+    minWidth: 700,
     minHeight: 680,
     center: true,
     resizable: true,
     focus: true,
-    decorations: true,
+    decorations: false,
+    transparent: true,
   });
 
   return waitForWindowCreation(exportWindow);

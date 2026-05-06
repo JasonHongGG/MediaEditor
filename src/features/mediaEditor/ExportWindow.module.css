@@ -1,299 +1,416 @@
-.window {
-  min-height: 100vh;
-  padding: 20px;
-  background:
-    radial-gradient(circle at top, rgba(243, 195, 22, 0.14), transparent 30%),
-    linear-gradient(180deg, #101217, #0a0c10 60%);
-  color: #f3f4f6;
-}
-
-.header,
-.panel,
-.emptyState {
-  border: 1px solid rgba(255, 255, 255, 0.08);
-  background: rgba(18, 21, 27, 0.9);
-  box-shadow: 0 18px 48px rgba(0, 0, 0, 0.28);
-}
-
-.header {
-  display: flex;
-  align-items: flex-start;
-  justify-content: space-between;
-  gap: 16px;
-  padding: 20px;
-  border-radius: 24px;
-}
-
-.eyebrow,
-.panelTitle,
-.summaryCard span,
-.progressHeader span {
-  font-size: 11px;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
-  color: #94a3b8;
-}
-
-.header h1 {
-  margin: 8px 0 6px;
-  font-size: 28px;
-}
-
-.header p,
-.panelHeader p,
-.optionCard span,
-.helperText,
-.progressDetail,
-.notes,
-.note {
-  color: #94a3b8;
-}
-
-.grid {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 16px;
-  margin-top: 16px;
-}
-
-.panel,
-.emptyState {
-  border-radius: 24px;
-  padding: 20px;
-}
-
-.panel {
+/* Container for the borderless window */
+.windowContainer {
   display: flex;
   flex-direction: column;
-  gap: 18px;
+  width: 100vw;
+  height: 100vh;
+  background: radial-gradient(circle at 50% -20%, rgba(243, 195, 22, 0.1) 0%, transparent 50%),
+              linear-gradient(160deg, #0f1115 0%, #060709 100%);
+  color: #f8fafc;
+  font-family: 'Inter', system-ui, sans-serif;
+  overflow: hidden;
+  border-radius: 12px;
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.05);
 }
 
-.panelHeader {
+/* Custom Titlebar */
+.titlebar {
   display: flex;
-  align-items: baseline;
+  align-items: center;
   justify-content: space-between;
-  gap: 12px;
+  height: 48px;
+  padding: 0 16px;
+  background: rgba(15, 17, 21, 0.8);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+  user-select: none;
+  -webkit-app-region: drag;
 }
 
-.optionGrid,
-.summaryGrid {
-  display: grid;
-  gap: 12px;
-}
-
-.optionGrid {
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-}
-
-.optionCard,
-.summaryCard,
-.iconButton,
-.primaryButton,
-.secondaryButton {
-  border: 1px solid rgba(255, 255, 255, 0.08);
-  background: #20242d;
-  color: inherit;
-}
-
-.optionCard {
+.titlebarLeft {
   display: flex;
-  flex-direction: column;
-  align-items: flex-start;
+  align-items: center;
   gap: 8px;
-  padding: 14px;
-  border-radius: 18px;
-  text-align: left;
+  font-size: 13px;
+  font-weight: 500;
+  color: #94a3b8;
+  flex: 1;
+  -webkit-app-region: drag;
 }
 
-.optionCardActive {
-  border-color: rgba(243, 195, 22, 0.5);
-  box-shadow: 0 0 0 1px rgba(243, 195, 22, 0.12) inset;
-  background: linear-gradient(180deg, rgba(243, 195, 22, 0.14), rgba(32, 36, 45, 0.96));
-}
-
-.optionIcon {
-  display: inline-flex;
+.closeButton {
+  display: flex;
   align-items: center;
   justify-content: center;
-  width: 34px;
-  height: 34px;
-  border-radius: 12px;
-  background: rgba(243, 195, 22, 0.16);
-  color: #f3c316;
+  width: 28px;
+  height: 28px;
+  border-radius: 6px;
+  background: transparent;
+  color: #94a3b8;
+  border: none;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  -webkit-app-region: no-drag;
 }
 
-.fieldBlock {
+.closeButton:hover {
+  background: rgba(239, 68, 68, 0.15);
+  color: #ef4444;
+}
+
+/* Main Content Area */
+.mainContent {
+  flex: 1;
+  min-height: 0;
+  padding: 32px 40px;
+  overflow-y: auto;
   display: flex;
   flex-direction: column;
+}
+
+/* Custom Scrollbar */
+.mainContent::-webkit-scrollbar {
+  width: 6px;
+}
+.mainContent::-webkit-scrollbar-track {
+  background: transparent;
+}
+.mainContent::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.1);
+  border-radius: 3px;
+}
+.mainContent::-webkit-scrollbar-thumb:hover {
+  background: rgba(255, 255, 255, 0.2);
+}
+
+/* Empty State */
+.emptyState {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 16px;
+  color: #94a3b8;
+}
+
+.iconCircle {
+  width: 64px;
+  height: 64px;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid rgba(255, 255, 255, 0.05);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #f3c316;
+  margin-bottom: 8px;
+}
+
+.outlineBtn {
+  display: flex;
+  align-items: center;
   gap: 8px;
+  padding: 8px 16px;
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  color: #e2e8f0;
+  font-size: 13px;
+  cursor: pointer;
+  transition: all 0.2s ease;
 }
 
-.fieldLabel {
-  font-size: 12px;
-  color: #cbd5e1;
+.outlineBtn:hover {
+  background: rgba(255, 255, 255, 0.08);
 }
 
-.selectField,
-.pathField input {
+/* Content Layout */
+.contentLayout {
+  display: flex;
+  flex-direction: column;
+  gap: 32px;
+  max-width: 600px;
+  margin: 0 auto;
   width: 100%;
-  height: 44px;
-  padding: 0 14px;
-  border-radius: 14px;
-  border: 1px solid rgba(255, 255, 255, 0.08);
-  background: #171b22;
-  color: inherit;
 }
 
-.pathField {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) auto;
+/* Session Overview */
+.sessionOverview {
+  text-align: center;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.projectName {
+  font-size: 24px;
+  font-weight: 600;
+  color: #ffffff;
+  letter-spacing: -0.02em;
+}
+
+.metaRow {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+}
+
+.metaBadge {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 12px;
+  border-radius: 20px;
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  font-size: 12px;
+  color: #94a3b8;
+}
+
+/* Settings Panel */
+.settingsPanel {
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+  background: rgba(255, 255, 255, 0.02);
+  border: 1px solid rgba(255, 255, 255, 0.05);
+  border-radius: 16px;
+  padding: 24px;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.2);
+}
+
+.settingGroup {
+  display: flex;
+  flex-direction: column;
   gap: 10px;
 }
 
-.summaryGrid {
-  grid-template-columns: repeat(2, minmax(0, 1fr));
+.settingGroup label {
+  font-size: 13px;
+  font-weight: 500;
+  color: #cbd5e1;
 }
 
-.summaryCard {
-  padding: 14px;
-  border-radius: 18px;
+/* Format Selector */
+.formatSelector {
   display: flex;
-  flex-direction: column;
-  gap: 6px;
+  background: rgba(0, 0, 0, 0.3);
+  padding: 4px;
+  border-radius: 12px;
+  border: 1px solid rgba(255, 255, 255, 0.04);
+  gap: 4px;
 }
 
-.progressCard {
+.formatPill {
+  position: relative;
+  flex: 1;
+  padding: 10px 0;
+  background: transparent;
+  border: none;
+  border-radius: 8px;
+  color: #64748b;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  z-index: 1;
+  transition: color 0.2s ease;
+}
+
+.formatPill:hover {
+  color: #94a3b8;
+}
+
+.formatPill.active {
+  color: #111318;
+}
+
+.pillBg {
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(135deg, #fde047, #f3c316);
+  border-radius: 8px;
+  z-index: -1;
+  box-shadow: 0 4px 12px rgba(243, 195, 22, 0.2);
+}
+
+.pillText {
+  position: relative;
+  z-index: 2;
+}
+
+/* Select & Input */
+.selectWrapper {
+  position: relative;
+}
+
+.pathInput {
+  width: 100%;
+  padding: 12px 16px;
+  background: rgba(0, 0, 0, 0.2);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 10px;
+  color: #f8fafc;
+  font-size: 14px;
+  outline: none;
+  transition: all 0.2s ease;
+  appearance: none;
+}
+
+.pathInput:hover {
+  border-color: rgba(255, 255, 255, 0.15);
+}
+
+.pathInput:focus {
+  border-color: rgba(243, 195, 22, 0.5);
+  box-shadow: 0 0 0 2px rgba(243, 195, 22, 0.1);
+}
+
+.pathInputGroup {
+  display: flex;
+  gap: 8px;
+}
+
+.folderBtn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 44px;
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 10px;
+  color: #94a3b8;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.folderBtn:hover {
+  background: rgba(255, 255, 255, 0.1);
+  color: #f8fafc;
+}
+
+/* Action Panel & Progress */
+.actionPanel {
   display: flex;
   flex-direction: column;
-  gap: 12px;
+  gap: 20px;
+}
+
+.progressContainer {
+  background: rgba(0, 0, 0, 0.2);
+  border: 1px solid rgba(255, 255, 255, 0.04);
+  border-radius: 12px;
   padding: 16px;
-  border-radius: 20px;
-  background: #171b22;
-  border: 1px solid rgba(255, 255, 255, 0.06);
+  overflow: hidden;
 }
 
 .progressHeader {
   display: flex;
-  align-items: center;
   justify-content: space-between;
-  gap: 12px;
+  align-items: center;
+  margin-bottom: 12px;
+  font-size: 13px;
 }
 
-.progressBar {
-  height: 10px;
-  border-radius: 999px;
+.progressDetail {
+  color: #cbd5e1;
+}
+
+.progressPercent {
+  font-variant-numeric: tabular-nums;
+  color: #f3c316;
+  font-weight: 600;
+}
+
+.progressBarBg {
+  height: 6px;
+  background: rgba(255, 255, 255, 0.06);
+  border-radius: 3px;
   overflow: hidden;
-  background: rgba(255, 255, 255, 0.08);
 }
 
-.progressFill {
+.progressBarFill {
   height: 100%;
-  background: linear-gradient(90deg, #f3c316, #fde047);
+  background: linear-gradient(90deg, #f3c316, #fef08a);
+  border-radius: 3px;
+  box-shadow: 0 0 10px rgba(243, 195, 22, 0.4);
 }
 
-.actions,
-.notes {
+.successMessage {
   display: flex;
-  gap: 12px;
-}
-
-.actions {
-  justify-content: flex-end;
-}
-
-.notes {
-  flex-direction: column;
-}
-
-.note {
-  display: inline-flex;
-  align-items: center;
-  gap: 8px;
-  font-size: 12px;
-}
-
-.errorCard {
-  display: inline-flex;
-  align-items: center;
-  gap: 8px;
-  color: #fca5a5;
-  font-size: 12px;
-}
-
-.iconButton,
-.primaryButton,
-.secondaryButton {
-  height: 42px;
-  border-radius: 14px;
-  display: inline-flex;
   align-items: center;
   justify-content: center;
   gap: 8px;
-  padding: 0 14px;
+  padding: 12px;
+  background: rgba(34, 197, 94, 0.1);
+  border: 1px solid rgba(34, 197, 94, 0.2);
+  color: #4ade80;
+  border-radius: 10px;
+  font-size: 14px;
 }
 
-.iconButton {
-  width: 42px;
-  padding: 0;
-}
-
-.primaryButton {
-  background: #f3c316;
-  border-color: #f3c316;
-  color: #111318;
-  font-weight: 700;
-}
-
-.secondaryButton:hover,
-.iconButton:hover,
-.optionCard:hover {
-  background: #262b35;
-}
-
-.primaryButton:hover {
-  background: #e6b70c;
-}
-
-.emptyState {
-  margin-top: 16px;
-  min-height: 320px;
+.errorMessage {
   display: flex;
-  flex-direction: column;
   align-items: center;
   justify-content: center;
-  gap: 12px;
+  gap: 8px;
+  padding: 12px;
+  background: rgba(239, 68, 68, 0.1);
+  border: 1px solid rgba(239, 68, 68, 0.2);
+  color: #f87171;
+  border-radius: 10px;
+  font-size: 14px;
   text-align: center;
 }
 
-.spinning {
-  animation: spin 1s linear infinite;
+.actionRow {
+  display: flex;
+  gap: 12px;
 }
 
-.successIcon {
-  color: #86efac;
+.primaryBtn,
+.secondaryBtn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  height: 48px;
+  border-radius: 12px;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  border: none;
+}
+
+.primaryBtn {
+  flex: 2;
+  background: linear-gradient(135deg, #f3c316, #eab308);
+  color: #111318;
+  box-shadow: 0 4px 14px rgba(243, 195, 22, 0.2);
+}
+
+.primaryBtn:disabled {
+  opacity: 0.7;
+  cursor: not-allowed;
+}
+
+.secondaryBtn {
+  flex: 1;
+  background: rgba(255, 255, 255, 0.05);
+  color: #cbd5e1;
+}
+
+.secondaryBtn:hover {
+  background: rgba(255, 255, 255, 0.08);
+  color: #f8fafc;
+}
+
+.spin {
+  animation: spin 1.2s linear infinite;
 }
 
 @keyframes spin {
-  from {
-    transform: rotate(0deg);
-  }
-
-  to {
-    transform: rotate(360deg);
-  }
-}
-
-@media (max-width: 900px) {
-  .grid {
-    grid-template-columns: 1fr;
-  }
-
-  .optionGrid,
-  .summaryGrid {
-    grid-template-columns: 1fr;
-  }
-
-  .actions {
-    justify-content: stretch;
-  }
+  to { transform: rotate(360deg); }
 }
