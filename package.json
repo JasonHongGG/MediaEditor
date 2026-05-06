@@ -8,7 +8,10 @@
     "build": "tsc -b && vite build",
     "lint": "eslint .",
     "preview": "vite preview",
-    "tauri": "tauri"
+    "tauri": "tauri",
+    "build:exe": "tauri build --no-bundle",
+    "build:installer": "tauri build",
+    "build:portable": "tauri build --no-bundle && powershell -Command \"Remove-Item -Recurse -Force dist-portable -ErrorAction SilentlyContinue; New-Item -ItemType Directory dist-portable | Out-Null; Copy-Item src-tauri/target/release/media-editor.exe dist-portable/; Copy-Item -Recurse src-tauri/bin dist-portable/bin\""
   },
   "dependencies": {
     "@tauri-apps/api": "^2.10.1",

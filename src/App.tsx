@@ -17,8 +17,12 @@ function App() {
     <div className="app-container">
       <Header activeTab={activeTab} onTabChange={setActiveTab} />
       <div className="workspace-content">
-        {activeTab === 'youtube' && <YoutubeDownloader />}
-        {activeTab === 'editor' && <MediaEditor />}
+        <div style={{ display: activeTab === 'youtube' ? 'contents' : 'none' }}>
+          <YoutubeDownloader />
+        </div>
+        <div style={{ display: activeTab === 'editor' ? 'contents' : 'none' }}>
+          <MediaEditor />
+        </div>
       </div>
     </div>
   );

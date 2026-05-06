@@ -1,97 +1,88 @@
-# React + TypeScript + Vite
+# Media Editor
 
-This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
+A Tauri-based desktop application for media editing and YouTube downloading. Built with React, TypeScript, and Rust.
 
-Currently, two official plugins are available:
+## Getting Started
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Oxc](https://oxc.rs)
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/)
+### Prerequisites
 
-## React Compiler
+- [Node.js](https://nodejs.org/) (v18+)
+- [Rust](https://www.rust-lang.org/tools/install) (stable)
+- [Tauri CLI prerequisites](https://v2.tauri.app/start/prerequisites/)
 
-The React Compiler is not enabled on this template because of its impact on dev & build performances. To add it, see [this documentation](https://react.dev/learn/react-compiler/installation).
+### External Binaries
 
-## Expanding the ESLint configuration
+The following binaries must be placed in `src-tauri/bin/` for full functionality:
 
-If you are developing a production application, we recommend updating the configuration to enable type-aware lint rules:
+| Binary | Purpose | Source |
+|--------|---------|--------|
+| `yt-dlp.exe` | YouTube media downloading | [yt-dlp releases](https://github.com/yt-dlp/yt-dlp/releases) |
+| `ffmpeg.exe` | Media encoding & export | `winget install Gyan.FFmpeg` |
+| `ffprobe.exe` | Media file inspection | Included with ffmpeg |
 
-```js
-export default defineConfig([
-  globalIgnores(['dist']),
-  {
-    files: ['**/*.{ts,tsx}'],
-    extends: [
-      // Other configs...
+> **Note:** These binaries are **not** tracked by Git (`.gitignore`). After cloning, you must manually place them in `src-tauri/bin/`.
 
-      // Remove tseslint.configs.recommended and replace with this
-      tseslint.configs.recommendedTypeChecked,
-      // Alternatively, use this for stricter rules
-      tseslint.configs.strictTypeChecked,
-      // Optionally, add this for stylistic rules
-      tseslint.configs.stylisticTypeChecked,
+### Additional System Dependencies
 
-      // Other configs...
-    ],
-    languageOptions: {
-      parserOptions: {
-        project: ['./tsconfig.node.json', './tsconfig.app.json'],
-        tsconfigRootDir: import.meta.dirname,
-      },
-      // other options...
-    },
-  },
-])
+- **Deno**: Required by yt-dlp for solving YouTube signature challenges. Install via `winget install DenoLand.Deno`.
+
+### Install & Run
+
+```bash
+npm install
+npm run tauri dev
 ```
 
-You can also install [eslint-plugin-react-x](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-x) and [eslint-plugin-react-dom](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-dom) for React-specific lint rules:
+---
 
-```js
-// eslint.config.js
-import reactX from 'eslint-plugin-react-x'
-import reactDom from 'eslint-plugin-react-dom'
+## Build & Distribution
 
-export default defineConfig([
-  globalIgnores(['dist']),
-  {
-    files: ['**/*.{ts,tsx}'],
-    extends: [
-      // Other configs...
-      // Enable lint rules for React
-      reactX.configs['recommended-typescript'],
-      // Enable lint rules for React DOM
-      reactDom.configs.recommended,
-    ],
-    languageOptions: {
-      parserOptions: {
-        project: ['./tsconfig.node.json', './tsconfig.app.json'],
-        tsconfigRootDir: import.meta.dirname,
-      },
-      // other options...
-    },
-  },
-])
+### Build Commands
+
+| Command | Description | Output |
+|---------|-------------|--------|
+| `npm run build:exe` | Build standalone exe only (fast, no installer) | `src-tauri/target/release/media-editor.exe` |
+| `npm run build:installer` | Build NSIS installer (includes bundled binaries) | `src-tauri/target/release/bundle/nsis/media-editor_*_x64-setup.exe` |
+| `npm run build:portable` | Build exe + copy binaries into portable folder | `dist-portable/` |
+
+### Standalone EXE (Portable)
+
+The portable distribution requires the exe and `bin/` folder together:
+
+```
+dist-portable/
+├── media-editor.exe
+└── bin/
+    ├── ffmpeg.exe
+    ├── ffprobe.exe
+    └── yt-dlp.exe
 ```
 
-## External Dependencies
+To create this package:
 
-This project relies on several external binaries for media processing. While some may be bundled, others must be present in the system PATH.
+```bash
+npm run build:portable
+```
 
-### Essential Components
+Then zip the `dist-portable/` folder and share it. The recipient must have **WebView2** installed (pre-installed on Windows 10 21H2+ and Windows 11).
 
-1.  **yt-dlp**: Used for fetching video metadata and downloading.
-2.  **ffmpeg / ffprobe**: Required for probing media files and merging video/audio streams during download.
-    *   **Installation (Windows)**: `winget install Gyan.FFmpeg`
-3.  **Deno**: **CRITICAL**. A JavaScript runtime is required for `yt-dlp` to solve YouTube signature challenges. Without this, you will likely encounter `Signature solving failed` or `403 Forbidden` errors.
-    *   **Installation (Windows)**: `winget install DenoLand.Deno`
+### NSIS Installer
+
+For a full installer that bundles everything including WebView2:
+
+```bash
+npm run build:installer
+```
+
+The installer will be at `src-tauri/target/release/bundle/nsis/media-editor_0.1.0_x64-setup.exe`.
 
 ---
 
 ## Troubleshooting (YouTube Downloader)
 
 ### 1. yt-dlp version: Use Nightly
-The **stable** version of yt-dlp (e.g. `2026.03.17`) cannot access most YouTube formats due to PO Token requirements. The **nightly** build includes improved client strategies (e.g. `android_vr`) that bypass these restrictions.
-*   **Update to nightly**: `yt-dlp.exe --update-to nightly`
-*   The bundled binary is located at `src-tauri/bin/yt-dlp.exe`.
+The **stable** version of yt-dlp cannot access most YouTube formats due to PO Token requirements. The **nightly** build includes improved client strategies that bypass these restrictions.
+- **Update to nightly**: `yt-dlp.exe --update-to nightly`
 
 ### 2. Signature solving failed
 Ensure **Deno** is installed and accessible in your terminal (`deno --version`). yt-dlp uses Deno to solve YouTube's JavaScript signature challenges.
@@ -103,4 +94,4 @@ Caused by **IPv6** connectivity issues with YouTube CDN on Windows. The app uses
 Avoid `--cookies-from-browser` on Windows — Chrome/Edge lock the cookie database while running, and DPAPI decryption fails. The current implementation avoids cookies entirely.
 
 ### 5. HTTP Error 429: Too Many Requests
-Usually resolved by having Deno installed (for JS challenge solving) and using the nightly build. If it persists, you may need to manually export cookies to a `.txt` file.
+Usually resolved by having Deno installed (for JS challenge solving) and using the nightly build.

@@ -7,6 +7,23 @@ use std::process::{Command, Stdio};
 use std::sync::{mpsc, Mutex};
 use tauri::{AppHandle, Emitter, State};
 
+#[cfg(target_os = "windows")]
+use std::os::windows::process::CommandExt;
+
+/// Creates a `Command` that will not spawn a visible console window on Windows.
+#[cfg(target_os = "windows")]
+fn hidden_command(program: &str) -> Command {
+    const CREATE_NO_WINDOW: u32 = 0x08000000;
+    let mut cmd = Command::new(program);
+    cmd.creation_flags(CREATE_NO_WINDOW);
+    cmd
+}
+
+#[cfg(not(target_os = "windows"))]
+fn hidden_command(program: &str) -> Command {
+    Command::new(program)
+}
+
 #[derive(Serialize, Deserialize, Debug)]
 pub struct VideoInfo {
     title: String,
@@ -208,7 +225,7 @@ fn detect_phase(line: &str) -> Option<String> {
 async fn get_youtube_info(url: String) -> Result<VideoInfo, String> {
     let ytdlp = find_bundled("yt-dlp")?;
 
-    let output = Command::new(&ytdlp)
+    let output = hidden_command(&ytdlp)
         .args([
             "--dump-json",
             "--no-playlist",
@@ -308,7 +325,7 @@ async fn download_youtube(
     eprintln!("[yt-dlp] Binary: {}", &ytdlp);
     eprintln!("[yt-dlp] Args: {:?}", &args);
 
-    let mut child = Command::new(&ytdlp)
+    let mut child = hidden_command(&ytdlp)
         .args(&args)
         .env("PYTHONIOENCODING", "utf-8")
         .env("PYTHONUTF8", "1")
@@ -511,7 +528,7 @@ fn parse_stream_resolution(line: &str) -> Option<(u32, u32)> {
 
 fn probe_with_ffprobe(path: &str) -> Result<MediaProbePayload, String> {
     let ffprobe = find_bundled("ffprobe")?;
-    let output = Command::new(&ffprobe)
+    let output = hidden_command(&ffprobe)
         .args([
             "-v",
             "error",
@@ -597,7 +614,7 @@ fn probe_with_ffprobe(path: &str) -> Result<MediaProbePayload, String> {
 
 fn probe_with_ffmpeg(path: &str) -> Result<MediaProbePayload, String> {
     let ffmpeg = find_bundled("ffmpeg")?;
-    let output = Command::new(&ffmpeg)
+    let output = hidden_command(&ffmpeg)
         .args(["-hide_banner", "-i", path])
         .stdout(Stdio::null())
         .stderr(Stdio::piped())
@@ -1082,7 +1099,7 @@ async fn process_timeline_export(app: AppHandle, request: TimelineExportRequest)
     args.extend(codec_args_for_format(&format, request.audio_bitrate_kbps));
     args.push(request.output_path.clone());
 
-    let mut child = Command::new(&ffmpeg)
+    let mut child = hidden_command(&ffmpeg)
         .args(&args)
         .stdout(Stdio::piped())
         .stderr(Stdio::piped())
@@ -1211,7 +1228,7 @@ fn find_bundled(name: &str) -> Result<String, String> {
         }
     }
 
-    if Command::new(name)
+    if hidden_command(name)
         .arg("--version")
         .stdout(Stdio::null())
         .stderr(Stdio::null())
