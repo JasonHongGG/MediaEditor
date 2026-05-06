@@ -11,6 +11,7 @@ import {
 } from '../infrastructure/downloaderApi'
 
 const log = createLogger('YoutubeDownloader')
+const DOWNLOAD_SUCCESS_RESET_DELAY_MS = 2600
 
 export type DownloadMode = 'video' | 'audio'
 
@@ -48,12 +49,39 @@ export function useYoutubeDownloader() {
   const [statusText, setStatusText] = React.useState('')
   const [downloadDone, setDownloadDone] = React.useState(false)
   const unlistenRef = React.useRef<UnlistenFn | null>(null)
+  const successResetTimeoutRef = React.useRef<number | null>(null)
+
+  const clearSuccessResetTimeout = React.useCallback(() => {
+    if (successResetTimeoutRef.current !== null) {
+      window.clearTimeout(successResetTimeoutRef.current)
+      successResetTimeoutRef.current = null
+    }
+  }, [])
 
   React.useEffect(() => {
     return () => {
+      clearSuccessResetTimeout()
       void unlistenRef.current?.()
     }
-  }, [])
+  }, [clearSuccessResetTimeout])
+
+  React.useEffect(() => {
+    if (!downloadDone) {
+      clearSuccessResetTimeout()
+      return undefined
+    }
+
+    successResetTimeoutRef.current = window.setTimeout(() => {
+      setDownloadDone(false)
+      setProgress(0)
+      setStatusText('')
+      successResetTimeoutRef.current = null
+    }, DOWNLOAD_SUCCESS_RESET_DELAY_MS)
+
+    return () => {
+      clearSuccessResetTimeout()
+    }
+  }, [clearSuccessResetTimeout, downloadDone])
 
   const resetSearchResult = React.useCallback(() => {
     setInfo(null)
@@ -63,22 +91,29 @@ export function useYoutubeDownloader() {
 
   const setUrl = React.useCallback((nextUrl: string) => {
     setUrlState(nextUrl)
+    clearSuccessResetTimeout()
     setInfo((currentInfo) => {
       if (currentInfo && nextUrl !== url) {
         setError(null)
         setDownloadDone(false)
+        setProgress(0)
+        setStatusText('')
         return null
       }
 
       return currentInfo
     })
-  }, [url])
+  }, [clearSuccessResetTimeout, url])
 
   const setMode = React.useCallback((nextMode: DownloadMode) => {
+    clearSuccessResetTimeout()
     setModeState(nextMode)
     setFormat(defaultFormatForMode(nextMode))
     setQuality(defaultQualityForMode(nextMode))
-  }, [])
+    setDownloadDone(false)
+    setProgress(0)
+    setStatusText('')
+  }, [clearSuccessResetTimeout])
 
   const analyze = React.useCallback(async () => {
     if (!url.trim()) {
@@ -87,6 +122,7 @@ export function useYoutubeDownloader() {
 
     setIsAnalyzing(true)
     setError(null)
+    clearSuccessResetTimeout()
     setDownloadDone(false)
     log.info('Analyzing URL.', { url })
 
@@ -102,7 +138,7 @@ export function useYoutubeDownloader() {
     } finally {
       setIsAnalyzing(false)
     }
-  }, [mode, url])
+  }, [clearSuccessResetTimeout, mode, url])
 
   const download = React.useCallback(async () => {
     const selectedDir = await open({
@@ -116,6 +152,7 @@ export function useYoutubeDownloader() {
     }
 
     const saveDir = selectedDir as string
+    clearSuccessResetTimeout()
     setIsDownloading(true)
     setProgress(0)
     setStatusText('Preparing download...')
@@ -151,7 +188,7 @@ export function useYoutubeDownloader() {
         unlistenRef.current = null
       }
     }
-  }, [format, quality, url])
+  }, [clearSuccessResetTimeout, format, quality, url])
 
   return {
     url,

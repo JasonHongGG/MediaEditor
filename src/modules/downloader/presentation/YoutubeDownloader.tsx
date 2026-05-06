@@ -48,10 +48,7 @@ export const YoutubeDownloader: React.FC = () => {
       transition={{ ease: 'easeOut', duration: 0.2 }}
       className={styles.container}
     >
-      <div
-        className={styles.searchSection}
-        data-centered={!hasSearched}
-      >
+      <div className={styles.searchSection}>
         <AnimatePresence>
           {!hasSearched && (
             <motion.div
@@ -172,35 +169,37 @@ export const YoutubeDownloader: React.FC = () => {
                 </div>
 
                 <div className={styles.actionSection}>
-                  {isDownloading ? (
-                    <div className={styles.progressContainer}>
-                      <div className={styles.progressHeader}>
-                        <span className={styles.progressLabel}>{statusText}</span>
-                        <span className={styles.progressPercent}>{progress}%</span>
+                  <div className={styles.actionState}>
+                    {isDownloading ? (
+                      <div className={styles.progressContainer}>
+                        <div className={styles.progressHeader}>
+                          <span className={styles.progressLabel}>{statusText}</span>
+                          <span className={styles.progressPercent}>{progress}%</span>
+                        </div>
+                        <div className={styles.progressBar}>
+                          <motion.div
+                            className={styles.progressFill}
+                            initial={{ width: 0 }}
+                            animate={{ width: `${progress}%` }}
+                            transition={{ ease: 'linear', duration: 0.2 }}
+                          />
+                        </div>
                       </div>
-                      <div className={styles.progressBar}>
-                        <motion.div
-                          className={styles.progressFill}
-                          initial={{ width: 0 }}
-                          animate={{ width: `${progress}%` }}
-                          transition={{ ease: 'linear', duration: 0.2 }}
-                        />
+                    ) : downloadDone ? (
+                      <div className={styles.successMessage}>
+                        <CheckCircle2 size={16} />
+                        Download Complete
                       </div>
-                    </div>
-                  ) : downloadDone ? (
-                    <div className={styles.successMessage}>
-                      <CheckCircle2 size={16} />
-                      Download Complete
-                    </div>
-                  ) : (
-                    <button
-                      className={styles.downloadBtn}
-                      onClick={() => void download()}
-                    >
-                      <FolderOpen size={16} />
-                      Download
-                    </button>
-                  )}
+                    ) : (
+                      <button
+                        className={styles.downloadBtn}
+                        onClick={() => void download()}
+                      >
+                        <FolderOpen size={16} />
+                        Download
+                      </button>
+                    )}
+                  </div>
                 </div>
               </div>
             </div>

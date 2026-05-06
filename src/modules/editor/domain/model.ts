@@ -43,9 +43,9 @@ export interface EditorProjectState {
 }
 
 export const DEFAULT_TRACKS: TimelineTrack[] = [
-  { id: 'track-3', name: 'Track 3', order: 3 },
-  { id: 'track-2', name: 'Track 2', order: 2 },
   { id: 'track-1', name: 'Track 1', order: 1 },
+  { id: 'track-2', name: 'Track 2', order: 2 },
+  { id: 'track-3', name: 'Track 3', order: 3 },
 ];
 
 export const DEFAULT_PROJECT_NAME = 'Untitled Project';

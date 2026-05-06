@@ -61,11 +61,6 @@
   align-items: center;
   width: 100%;
   margin-top: 0;
-  transition: all 0.6s cubic-bezier(0.16, 1, 0.3, 1);
-}
-
-.searchSection[data-centered="true"] {
-  margin-top: 15vh;
 }
 
 .inputWrapper {
@@ -278,6 +273,15 @@
 
 .actionSection {
   margin-top: auto;
+  min-height: 92px;
+  display: flex;
+  align-items: flex-end;
+}
+
+.actionState {
+  width: 100%;
+  display: flex;
+  align-items: flex-end;
 }
 
 .downloadBtn {
@@ -311,11 +315,13 @@
 /* --- Progress UI --- */
 
 .progressContainer {
+  width: 100%;
   display: flex;
   flex-direction: column;
   gap: 12px;
   background: rgba(0, 0, 0, 0.2);
   padding: 16px;
+  min-height: 88px;
   border-radius: var(--radius-md);
   border: 1px solid rgba(255, 255, 255, 0.05);
 }
@@ -324,12 +330,22 @@
   display: flex;
   align-items: center;
   justify-content: space-between;
+  gap: 12px;
   font-size: 13px;
   font-weight: 500;
   color: var(--text-primary);
 }
 
+.progressLabel {
+  min-width: 0;
+  flex: 1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
 .progressPercent {
+  flex-shrink: 0;
   font-family: var(--font-mono);
   color: var(--accent-primary);
 }
@@ -350,11 +366,13 @@
 }
 
 .successMessage {
+  width: 100%;
   display: flex;
   align-items: center;
   justify-content: center;
   gap: 8px;
-  height: 56px;
+  min-height: 88px;
+  padding: 0 16px;
   background: rgba(34, 197, 94, 0.1);
   border: 1px solid rgba(34, 197, 94, 0.3);
   color: #4ade80;

@@ -50,7 +50,7 @@ import {
 import { createLogger, getErrorMessage, serializeError } from '../../../utils/logger';
 import { openExportWindow } from '../../export/infrastructure/exportApi';
 import { preparePendingExportSession } from '../../export/application/exportSession';
-import { sortTracksDescending } from '../domain/timelineCommands';
+import { sortTracksInDisplayOrder } from '../domain/timelineCommands';
 import {
   getPlaybackPreviewState,
   type PlaybackPreviewState,
@@ -143,7 +143,7 @@ export const MediaEditorWorkspace: React.FC = () => {
     hasActiveVideo: false,
   });
 
-  const sortedTracks = useMemo(() => sortTracksDescending(state.tracks), [state.tracks]);
+  const sortedTracks = useMemo(() => sortTracksInDisplayOrder(state.tracks), [state.tracks]);
   const assetMap = useMemo(() => new Map(state.assets.map((asset) => [asset.id, asset])), [state.assets]);
   const timelineDurationMs = useMemo(() => getTimelineDuration(state.clips), [state.clips]);
   const timelineVisibleWidthPx = useMemo(
@@ -1114,6 +1114,16 @@ export const MediaEditorWorkspace: React.FC = () => {
               <div className={styles.timelineActions}>
                 <button type="button" className={styles.iconButton} onClick={() => dispatch({ type: 'split-clip', clipId: selectedClip?.id ?? '', atMs: livePlayheadMsRef.current })} disabled={!selectedClip}>
                   <Scissors size={14} />
+                </button>
+                <button
+                  type="button"
+                  className={styles.iconButton}
+                  onClick={() => dispatch({ type: 'set-selected-clips-muted', muted: !selectedClip?.muted })}
+                  disabled={!selectedClip}
+                  aria-label={selectedClip?.muted ? 'Unmute selected clip' : 'Mute selected clip'}
+                  title={selectedClip?.muted ? 'Unmute selected clip' : 'Mute selected clip'}
+                >
+                  {selectedClip?.muted ? <Volume2 size={14} /> : <VolumeX size={14} />}
                 </button>
                 <button type="button" className={styles.iconButton} onClick={() => dispatch({ type: 'delete-selected-clips' })} disabled={!selectedClip}>
                   <Trash2 size={14} />

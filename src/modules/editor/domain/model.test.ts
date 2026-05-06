@@ -10,6 +10,13 @@ describe('editor model', () => {
     expect(state.renderProfile.fps).toBe(60)
   })
 
+  it('starts new projects with ascending track order from top to bottom', () => {
+    const state = buildDefaultProjectState()
+
+    expect(state.tracks.map((track) => track.name)).toEqual(['Track 1', 'Track 2', 'Track 3'])
+    expect(state.tracks.map((track) => track.order)).toEqual([1, 2, 3])
+  })
+
   it('serializes version 2 documents without workspace-only session fields', () => {
     const state = buildDefaultProjectState()
     state.documentName = 'Sequence A'

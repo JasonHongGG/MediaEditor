@@ -411,10 +411,9 @@ export function removeAsset(state: EditorProjectState, assetId: string) {
 
 export function addTrack(state: EditorProjectState) {
   const nextOrder = state.tracks.reduce((maxValue, track) => Math.max(maxValue, track.order), 0) + 1;
-  const nextTrackNumber = state.tracks.length + 1;
   const nextTrack: TimelineTrack = {
     id: createId('track'),
-    name: `Track ${nextTrackNumber}`,
+    name: `Track ${nextOrder}`,
     order: nextOrder,
   };
 
@@ -459,6 +458,6 @@ export function removeTrack(state: EditorProjectState, trackId: string) {
   };
 }
 
-export function sortTracksDescending(tracks: TimelineTrack[]) {
-  return [...tracks].sort((left, right) => right.order - left.order);
+export function sortTracksInDisplayOrder(tracks: TimelineTrack[]) {
+  return [...tracks].sort((left, right) => left.order - right.order);
 }
