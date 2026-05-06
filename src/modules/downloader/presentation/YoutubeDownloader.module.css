@@ -196,6 +196,7 @@
 
 .previewInfo {
   flex: 1;
+  min-width: 0;
   padding: 36px 40px;
   display: flex;
   flex-direction: column;
@@ -275,12 +276,14 @@
   margin-top: auto;
   min-height: 92px;
   display: flex;
+  min-width: 0;
   align-items: flex-end;
 }
 
 .actionState {
   width: 100%;
   display: flex;
+  min-width: 0;
   align-items: flex-end;
 }
 
@@ -316,6 +319,7 @@
 
 .progressContainer {
   width: 100%;
+  min-width: 0;
   display: flex;
   flex-direction: column;
   gap: 12px;
@@ -328,6 +332,7 @@
 
 .progressHeader {
   display: flex;
+  min-width: 0;
   align-items: center;
   justify-content: space-between;
   gap: 12px;

@@ -93,7 +93,7 @@ fn build_status_text(phase: &str, progress: &YtdlpProgress) -> String {
     }
 
     let phase_label = match phase {
-        "downloading_video" => "Downloading video",
+        "downloading_video" => "Downloading",
         "downloading" => "Downloading",
         "merging" => "Merging",
         "converting" => "Converting",

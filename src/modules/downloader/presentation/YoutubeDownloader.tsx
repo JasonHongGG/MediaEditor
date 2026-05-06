@@ -52,13 +52,14 @@ export const YoutubeDownloader: React.FC<YoutubeDownloaderProps> = () => {
       transition={{ ease: 'easeOut', duration: 0.2 }}
       className={styles.container}
     >
-      <div className={styles.searchSection}>
-        <AnimatePresence>
+      <motion.div layout className={styles.searchSection} transition={{ duration: 0.3, ease: 'easeInOut' }}>
+        <AnimatePresence mode="popLayout">
           {!hasSearched && (
             <motion.div
+              layout
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
-              exit={{ opacity: 0, scale: 0.95, filter: 'blur(4px)' }}
+              exit={{ opacity: 0, scale: 0.95, filter: 'blur(4px)', y: -20 }}
               transition={{ duration: 0.3 }}
               className={styles.heroHeader}
             >
@@ -71,7 +72,7 @@ export const YoutubeDownloader: React.FC<YoutubeDownloaderProps> = () => {
           )}
         </AnimatePresence>
 
-        <div className={styles.inputWrapper}>
+        <motion.div layout className={styles.inputWrapper}>
           <Search className={styles.inputIcon} size={18} />
           <input
             type="text"
@@ -92,8 +93,8 @@ export const YoutubeDownloader: React.FC<YoutubeDownloaderProps> = () => {
               <ChevronRight size={18} />
             </button>
           )}
-        </div>
-      </div>
+        </motion.div>
+      </motion.div>
 
       <AnimatePresence mode="wait">
         {error && (
