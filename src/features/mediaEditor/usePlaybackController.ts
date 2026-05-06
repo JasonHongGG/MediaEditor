@@ -106,6 +106,7 @@ export function usePlaybackController({
     }
 
     let frameId = 0;
+    let lastDispatchedMs = -1;
 
     const step = (timestamp: number) => {
       const anchor = anchorRef.current;
@@ -121,9 +122,14 @@ export function usePlaybackController({
         return;
       }
 
-      startTransition(() => {
-        dispatch({ type: 'set-playhead', playheadMs: nextPlayheadMs });
-      });
+      // Throttle state updates to ~30fps to reduce render pressure
+      const rounded = Math.round(nextPlayheadMs);
+      if (Math.abs(rounded - lastDispatchedMs) >= 33) {
+        lastDispatchedMs = rounded;
+        startTransition(() => {
+          dispatch({ type: 'set-playhead', playheadMs: rounded });
+        });
+      }
 
       frameId = requestAnimationFrame(step);
     };
@@ -180,14 +186,15 @@ export function usePlaybackController({
       return;
     }
 
-    if (!syncMediaTime(element, expectedTime, isPlaying)) {
-      return;
-    }
+    // During playback, let the browser's native clock run — only correct drift
+    syncMediaTime(element, expectedTime, isPlaying);
 
     if (isPlaying) {
-      void element.play().catch(() => {
-        /* ignore transient play rejections; transport state is controlled separately */
-      });
+      if (element.paused) {
+        void element.play().catch(() => {
+          /* ignore transient play rejections */
+        });
+      }
     } else {
       element.pause();
     }
@@ -210,14 +217,14 @@ export function usePlaybackController({
       element.muted = previewMuted;
       element.volume = previewMuted ? 0 : previewVolume;
 
-      if (!syncMediaTime(element, expectedTime, isPlaying)) {
-        continue;
-      }
+      syncMediaTime(element, expectedTime, isPlaying);
 
       if (isPlaying) {
-        void element.play().catch(() => {
-          /* ignore individual audio element failures */
-        });
+        if (element.paused) {
+          void element.play().catch(() => {
+            /* ignore individual audio element failures */
+          });
+        }
       } else {
         element.pause();
       }

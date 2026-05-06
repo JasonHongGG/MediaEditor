@@ -105,6 +105,20 @@ export const ExportWindow: React.FC = () => {
   }, []);
 
   React.useEffect(() => {
+    if (!outputPath) return;
+
+    const lastDotIndex = outputPath.lastIndexOf('.');
+    if (lastDotIndex === -1) {
+      setOutputPath(`${outputPath}.${format}`);
+      return;
+    }
+
+    // Replace existing extension with the new format
+    const base = outputPath.slice(0, lastDotIndex);
+    setOutputPath(`${base}.${format}`);
+  }, [format]);
+
+  React.useEffect(() => {
     void refreshSession();
 
     let disposed = false;
@@ -183,11 +197,22 @@ export const ExportWindow: React.FC = () => {
     });
 
     try {
-      const finalPath = outputPath || (await pickOutputPath());
+      let finalPath = outputPath || (await pickOutputPath());
       if (!finalPath) {
         setStatus('idle');
         setProgress(DEFAULT_PROGRESS);
         return;
+      }
+
+      // Final safety check for extension synchronization
+      if (!finalPath.toLowerCase().endsWith(`.${format}`)) {
+        const lastDot = finalPath.lastIndexOf('.');
+        if (lastDot !== -1) {
+          finalPath = `${finalPath.slice(0, lastDot)}.${format}`;
+        } else {
+          finalPath = `${finalPath}.${format}`;
+        }
+        setOutputPath(finalPath);
       }
 
       await processTimelineExport({

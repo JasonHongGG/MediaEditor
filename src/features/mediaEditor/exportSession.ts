@@ -34,7 +34,7 @@ export function preparePendingExportSession(state: EditorProjectState): PendingE
   return {
     projectName: state.documentName,
     suggestedName: sanitizeSuggestedName(state.documentName),
-    timelineDurationMs: getTimelineDuration(state.clips),
+    timelineDurationMs: Math.round(getTimelineDuration(state.clips)),
     hasVideo: usedAssets.some((asset) => asset.hasVideo),
     hasAudio: usedAssets.some((asset) => asset.hasAudio),
     dominantWidth: dominantVideoAsset?.width,
@@ -57,9 +57,9 @@ export function preparePendingExportSession(state: EditorProjectState): PendingE
       id: clip.id,
       assetId: clip.assetId,
       trackId: clip.trackId,
-      startMs: clip.startMs,
-      inPointMs: clip.inPointMs,
-      outPointMs: clip.outPointMs,
+      startMs: Math.round(clip.startMs),
+      inPointMs: Math.round(clip.inPointMs),
+      outPointMs: Math.round(clip.outPointMs),
       muted: clip.muted,
     })),
   };
