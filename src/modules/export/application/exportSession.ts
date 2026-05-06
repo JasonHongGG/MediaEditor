@@ -1,18 +1,25 @@
-import type { EditorProjectState } from './model';
-import { getTimelineDuration } from './model';
-import type { PendingExportSession } from './exportTypes';
+import type { EditorProjectState } from '../../editor/domain/model';
+import { getTimelineDuration } from '../../editor/domain/model';
+import type { ExportSnapshot } from './exportTypes';
+
+const INVALID_FILE_NAME_CHARACTERS = new Set(['<', '>', ':', '"', '/', '\\', '|', '?', '*']);
 
 function sanitizeSuggestedName(name: string) {
   const cleaned = name
     .trim()
-    .replace(/[<>:"/\\|?*\u0000-\u001F]+/g, '-')
+    .split('')
+    .map((character) => {
+      const codePoint = character.charCodeAt(0);
+      return codePoint <= 31 || INVALID_FILE_NAME_CHARACTERS.has(character) ? '-' : character;
+    })
+    .join('')
     .replace(/\s+/g, ' ')
     .trim();
 
   return cleaned || 'timeline-export';
 }
 
-export function preparePendingExportSession(state: EditorProjectState): PendingExportSession {
+export function preparePendingExportSession(state: EditorProjectState): ExportSnapshot {
   if (state.clips.length === 0) {
     throw new Error('Add at least one clip to the timeline before exporting.');
   }
@@ -62,5 +69,6 @@ export function preparePendingExportSession(state: EditorProjectState): PendingE
       outPointMs: Math.round(clip.outPointMs),
       muted: clip.muted,
     })),
+    renderProfile: { ...state.renderProfile },
   };
 }

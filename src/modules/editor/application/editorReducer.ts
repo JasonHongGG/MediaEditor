@@ -1,5 +1,5 @@
-import type { EditorAsset, EditorProjectState } from './model';
-import { buildDefaultProjectState, clamp, MAX_ZOOM, MIN_ZOOM } from './model';
+import type { EditorAsset, EditorProjectState } from '../domain/model';
+import { buildDefaultProjectState, clamp, MAX_ZOOM, MIN_ZOOM } from '../domain/model';
 import {
   addTrack,
   deleteSelectedClips,
@@ -13,7 +13,7 @@ import {
   splitClipAt,
   trimClipEnd,
   trimClipStart,
-} from './timelineCommands';
+} from '../domain/timelineCommands';
 
 export type EditorAction =
   | { type: 'reset-project' }

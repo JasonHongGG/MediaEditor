@@ -1,19 +1,19 @@
 import { emitTo } from '@tauri-apps/api/event';
 import { invoke } from '@tauri-apps/api/core';
 import { WebviewWindow } from '@tauri-apps/api/webviewWindow';
-import type { PendingExportSession, TimelineExportRequest } from './exportTypes';
-import { createLogger, getErrorMessage, serializeError } from '../../utils/logger';
+import type { ExportSnapshot, TimelineExportRequest } from '../application/exportTypes';
+import { createLogger, getErrorMessage, serializeError } from '../../../utils/logger';
 
 const EXPORT_WINDOW_LABEL = 'export';
-const EXPORT_WINDOW_URL = 'index.html?view=export';
+const EXPORT_WINDOW_URL = 'export.html';
 const log = createLogger('ExportWindowApi');
 
-export function setPendingExportSession(session: PendingExportSession) {
-  return invoke<void>('set_pending_export_session', { session });
+export function setPendingExportSession(snapshot: ExportSnapshot) {
+  return invoke<void>('set_pending_export_session', { session: snapshot });
 }
 
 export function getPendingExportSession() {
-  return invoke<PendingExportSession | null>('get_pending_export_session');
+  return invoke<ExportSnapshot | null>('get_pending_export_session');
 }
 
 export function processTimelineExport(request: TimelineExportRequest) {
@@ -78,18 +78,18 @@ function waitForWindowCreation(exportWindow: WebviewWindow) {
   });
 }
 
-export async function openExportWindow(session: PendingExportSession) {
+export async function openExportWindow(snapshot: ExportSnapshot) {
   log.info('Opening export window.', {
-    projectName: session.projectName,
-    clipCount: session.clips.length,
-    trackCount: session.tracks.length,
+    projectName: snapshot.projectName,
+    clipCount: snapshot.clips.length,
+    trackCount: snapshot.tracks.length,
   });
 
-  await setPendingExportSession(session);
+  await setPendingExportSession(snapshot);
 
   const existingWindow = await WebviewWindow.getByLabel(EXPORT_WINDOW_LABEL);
   if (existingWindow) {
-    await emitTo(EXPORT_WINDOW_LABEL, 'editor/export-session-updated', session).catch((error) => {
+    await emitTo(EXPORT_WINDOW_LABEL, 'editor/export-session-updated', snapshot).catch((error) => {
       log.warn('Failed to push updated session to an existing export window.', serializeError(error));
     });
     await existingWindow.setFocus().catch((error) => {

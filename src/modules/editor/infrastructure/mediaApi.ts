@@ -1,6 +1,6 @@
 import { convertFileSrc, invoke } from '@tauri-apps/api/core';
-import type { EditorAsset, MediaProbeResult, ProjectAssetRecord, ProjectDocument } from './model';
-import { basename, createId, detectMediaKind, extensionOf } from './model';
+import type { EditorAsset, MediaProbeResult, ProjectAssetRecord, ProjectDocumentV2 } from '../domain/model';
+import { basename, createId, detectMediaKind, extensionOf } from '../domain/model';
 
 const SUPPORTED_EXTENSIONS = new Set([
   'mp4',
@@ -102,12 +102,12 @@ export async function probePath(path: string) {
   return invoke<MediaProbeResult>('probe_media_source', { path });
 }
 
-export async function saveProjectDocument(path: string, document: ProjectDocument) {
+export async function saveProjectDocument(path: string, document: ProjectDocumentV2) {
   return invoke<void>('save_project_document', { path, document });
 }
 
 export async function loadProjectDocument(path: string) {
-  return invoke<ProjectDocument>('load_project_document', { path });
+  return invoke<ProjectDocumentV2>('load_project_document', { path });
 }
 
 export async function buildEditorAsset(path: string): Promise<EditorAsset> {

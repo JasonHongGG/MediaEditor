@@ -1,50 +1,24 @@
-export type MediaKind = 'video' | 'audio';
+import type {
+  MediaProbeResult,
+  ProjectAssetRecord,
+  ProjectDocumentV2,
+  RenderProfile,
+  TimelineClip,
+  TimelineTrack,
+  WorkspaceSession,
+} from '../../../shared/contracts';
+
+export type {
+  MediaProbeResult,
+  ProjectAssetRecord,
+  ProjectDocumentV2,
+  RenderProfile,
+  TimelineClip,
+  TimelineTrack,
+  WorkspaceSession,
+} from '../../../shared/contracts';
 
 export type AssetStatus = 'ready' | 'missing';
-
-export interface MediaProbeResult {
-  durationMs: number;
-  hasVideo: boolean;
-  hasAudio: boolean;
-  width?: number;
-  height?: number;
-}
-
-export interface ProjectAssetRecord extends MediaProbeResult {
-  id: string;
-  name: string;
-  path: string;
-  kind: MediaKind;
-}
-
-export interface TimelineTrack {
-  id: string;
-  name: string;
-  order: number;
-}
-
-export interface TimelineClip {
-  id: string;
-  assetId: string;
-  trackId: string;
-  startMs: number;
-  inPointMs: number;
-  outPointMs: number;
-  muted: boolean;
-}
-
-export interface ProjectDocument {
-  version: 1;
-  name: string;
-  savedAt: string;
-  assets: ProjectAssetRecord[];
-  tracks: TimelineTrack[];
-  clips: TimelineClip[];
-  playheadMs: number;
-  zoom: number;
-  previewVolume: number;
-  previewMuted: boolean;
-}
 
 export interface EditorAsset extends ProjectAssetRecord {
   status: AssetStatus;
@@ -59,6 +33,7 @@ export interface EditorProjectState {
   assets: EditorAsset[];
   tracks: TimelineTrack[];
   clips: TimelineClip[];
+  renderProfile: RenderProfile;
   selectedClipIds: string[];
   playheadMs: number;
   zoom: number;
@@ -74,6 +49,13 @@ export const DEFAULT_TRACKS: TimelineTrack[] = [
 ];
 
 export const DEFAULT_PROJECT_NAME = 'Untitled Project';
+
+export const DEFAULT_RENDER_PROFILE: RenderProfile = {
+  format: 'mp4',
+  fps: 60,
+  videoQuality: '1080p',
+  audioBitrateKbps: 320,
+};
 
 export const DEFAULT_ZOOM = 96;
 
@@ -171,7 +153,27 @@ export function getTimelineDuration(clips: TimelineClip[]) {
   return clips.reduce((maxValue, clip) => Math.max(maxValue, clipEndMs(clip)), 0);
 }
 
+export function createWorkspaceSession(): WorkspaceSession {
+  return {
+    playheadMs: 0,
+    zoom: DEFAULT_ZOOM,
+    previewVolume: 0.85,
+    previewMuted: false,
+  };
+}
+
+export function workspaceSessionFromState(state: Pick<EditorProjectState, 'playheadMs' | 'zoom' | 'previewVolume' | 'previewMuted'>): WorkspaceSession {
+  return {
+    playheadMs: state.playheadMs,
+    zoom: state.zoom,
+    previewVolume: state.previewVolume,
+    previewMuted: state.previewMuted,
+  };
+}
+
 export function buildDefaultProjectState(): EditorProjectState {
+  const session = createWorkspaceSession();
+
   return {
     documentPath: null,
     documentName: DEFAULT_PROJECT_NAME,
@@ -179,18 +181,19 @@ export function buildDefaultProjectState(): EditorProjectState {
     assets: [],
     tracks: [...DEFAULT_TRACKS],
     clips: [],
+    renderProfile: { ...DEFAULT_RENDER_PROFILE },
     selectedClipIds: [],
-    playheadMs: 0,
-    zoom: DEFAULT_ZOOM,
-    previewVolume: 0.85,
-    previewMuted: false,
+    playheadMs: session.playheadMs,
+    zoom: session.zoom,
+    previewVolume: session.previewVolume,
+    previewMuted: session.previewMuted,
     isPlaying: false,
   };
 }
 
-export function toProjectDocument(state: EditorProjectState): ProjectDocument {
+export function toProjectDocument(state: EditorProjectState): ProjectDocumentV2 {
   return {
-    version: 1,
+    version: 2,
     name: state.documentName,
     savedAt: new Date().toISOString(),
     assets: state.assets.map(({ id, name, path, kind, durationMs, hasVideo, hasAudio, width, height }) => ({
@@ -206,9 +209,6 @@ export function toProjectDocument(state: EditorProjectState): ProjectDocument {
     })),
     tracks: state.tracks,
     clips: state.clips,
-    playheadMs: state.playheadMs,
-    zoom: state.zoom,
-    previewVolume: state.previewVolume,
-    previewMuted: state.previewMuted,
+    renderProfile: { ...state.renderProfile },
   };
 }

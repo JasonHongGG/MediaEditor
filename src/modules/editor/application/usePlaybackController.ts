@@ -1,6 +1,6 @@
-import React, { useCallback, useEffect, useRef } from 'react';
-import type { EditorAsset, TimelineClip } from './model';
-import { clamp, clipEndMs } from './model';
+import React, { useCallback, useEffect, useLayoutEffect, useRef } from 'react';
+import type { EditorAsset, TimelineClip } from '../domain/model';
+import { clamp, clipEndMs } from '../domain/model';
 import type { EditorAction } from './editorReducer';
 
 const PLAYING_SYNC_THRESHOLD_SECONDS = 0.18;
@@ -115,16 +115,18 @@ export function usePlaybackController({
     onPreviewChange,
   });
 
-  latestStateRef.current = {
-    isPlaying,
-    playheadMs,
-    timelineDurationMs,
-    previewVolume,
-    previewMuted,
-    playbackEntries,
-    onTransportFrame,
-    onPreviewChange,
-  };
+  useLayoutEffect(() => {
+    latestStateRef.current = {
+      isPlaying,
+      playheadMs,
+      timelineDurationMs,
+      previewVolume,
+      previewMuted,
+      playbackEntries,
+      onTransportFrame,
+      onPreviewChange,
+    };
+  }, [isPlaying, onPreviewChange, onTransportFrame, playbackEntries, playheadMs, previewMuted, previewVolume, timelineDurationMs]);
 
   const emitPreviewState = useCallback((previewState: PlaybackPreviewState) => {
     const { onPreviewChange: handlePreviewChange } = latestStateRef.current;
@@ -200,9 +202,25 @@ export function usePlaybackController({
     [videoRef],
   );
 
-  const syncAudioElements = useCallback((activeAudioEntries: PlaybackTimelineEntry[], targetPlayheadMs: number, playing: boolean) => {
-    const { previewMuted: isPreviewMuted, previewVolume: currentPreviewVolume } = latestStateRef.current;
-    const activeAudioIds = new Set(activeAudioEntries.map((entry) => entry.clip.id));
+  const syncTransport = React.useEffectEvent((targetPlayheadMs: number, playing: boolean) => {
+    const {
+      timelineDurationMs: currentTimelineDurationMs,
+      playbackEntries: currentPlaybackEntries,
+      onTransportFrame: handleTransportFrame,
+      previewMuted: isPreviewMuted,
+      previewVolume: currentPreviewVolume,
+    } = latestStateRef.current;
+    const boundedPlayheadMs = clamp(targetPlayheadMs, 0, currentTimelineDurationMs);
+    const snapshot = getPlaybackSnapshot(currentPlaybackEntries, boundedPlayheadMs);
+    const activeAudioIds = new Set(snapshot.activeAudioEntries.map((entry) => entry.clip.id));
+
+    livePlayheadMsRef.current = boundedPlayheadMs;
+    handleTransportFrame?.(boundedPlayheadMs);
+    emitPreviewState({
+      previewAsset: snapshot.previewAsset,
+      hasActiveVideo: snapshot.hasActiveVideo,
+    });
+    syncVideoElement(snapshot.activeVideoEntry, boundedPlayheadMs, playing);
 
     for (const [clipId, element] of audioRefs.current.entries()) {
       if (!activeAudioIds.has(clipId)) {
@@ -210,13 +228,13 @@ export function usePlaybackController({
       }
     }
 
-    for (const entry of activeAudioEntries) {
+    for (const entry of snapshot.activeAudioEntries) {
       const element = audioRefs.current.get(entry.clip.id);
       if (!element || !entry.asset.url) {
         continue;
       }
 
-      const expectedTime = (entry.clip.inPointMs + (targetPlayheadMs - entry.clip.startMs)) / 1000;
+      const expectedTime = (entry.clip.inPointMs + (boundedPlayheadMs - entry.clip.startMs)) / 1000;
       element.muted = isPreviewMuted;
       element.volume = isPreviewMuted ? 0 : currentPreviewVolume;
 
@@ -233,28 +251,9 @@ export function usePlaybackController({
 
       element.pause();
     }
-  }, [audioRefs]);
+  });
 
-  const syncTransport = useCallback((targetPlayheadMs: number, playing: boolean) => {
-    const {
-      timelineDurationMs: currentTimelineDurationMs,
-      playbackEntries: currentPlaybackEntries,
-      onTransportFrame: handleTransportFrame,
-    } = latestStateRef.current;
-    const boundedPlayheadMs = clamp(targetPlayheadMs, 0, currentTimelineDurationMs);
-    const snapshot = getPlaybackSnapshot(currentPlaybackEntries, boundedPlayheadMs);
-
-    livePlayheadMsRef.current = boundedPlayheadMs;
-    handleTransportFrame?.(boundedPlayheadMs);
-    emitPreviewState({
-      previewAsset: snapshot.previewAsset,
-      hasActiveVideo: snapshot.hasActiveVideo,
-    });
-    syncVideoElement(snapshot.activeVideoEntry, boundedPlayheadMs, playing);
-    syncAudioElements(snapshot.activeAudioEntries, boundedPlayheadMs, playing);
-  }, [emitPreviewState, syncAudioElements, syncVideoElement]);
-
-  const stopPlayback = useCallback(() => {
+  const stopPlayback = () => {
     const { playheadMs: currentPlayheadMs, timelineDurationMs: currentTimelineDurationMs, isPlaying: currentlyPlaying } = latestStateRef.current;
     const committedPlayheadMs = clamp(livePlayheadMsRef.current, 0, currentTimelineDurationMs);
     anchorRef.current = null;
@@ -267,9 +266,9 @@ export function usePlaybackController({
     if (currentlyPlaying) {
       dispatch({ type: 'set-playing', isPlaying: false });
     }
-  }, [dispatch, syncTransport]);
+  };
 
-  const seekTo = useCallback((nextPlayheadMs: number, preservePlayback = false) => {
+  const seekTo = (nextPlayheadMs: number, preservePlayback = false) => {
     const {
       isPlaying: currentlyPlaying,
       playheadMs: currentPlayheadMs,
@@ -294,9 +293,9 @@ export function usePlaybackController({
     if (currentlyPlaying) {
       dispatch({ type: 'set-playing', isPlaying: false });
     }
-  }, [dispatch, syncTransport]);
+  };
 
-  const togglePlay = useCallback(() => {
+  const togglePlay = () => {
     const {
       isPlaying: currentlyPlaying,
       playheadMs: currentPlayheadMs,
@@ -327,16 +326,16 @@ export function usePlaybackController({
     if (!currentlyPlaying) {
       dispatch({ type: 'set-playing', isPlaying: true });
     }
-  }, [dispatch, stopPlayback, syncTransport]);
+  };
 
-  const seekBy = useCallback((deltaMs: number) => {
+  const seekBy = (deltaMs: number) => {
     const { isPlaying: currentlyPlaying, timelineDurationMs: currentTimelineDurationMs } = latestStateRef.current;
     if (currentTimelineDurationMs === 0) {
       return;
     }
 
     seekTo(livePlayheadMsRef.current + deltaMs, currentlyPlaying);
-  }, [seekTo]);
+  };
 
   useEffect(() => {
     if (!isPlaying || !anchorRef.current) {
@@ -371,7 +370,7 @@ export function usePlaybackController({
 
     frameId = requestAnimationFrame(step);
     return () => cancelAnimationFrame(frameId);
-  }, [dispatch, isPlaying, playheadMs, syncTransport, timelineDurationMs]);
+  }, [dispatch, isPlaying, playheadMs, timelineDurationMs]);
 
   useEffect(() => {
     if (isPlaying) {
@@ -379,7 +378,7 @@ export function usePlaybackController({
     }
 
     syncTransport(playheadMs, false);
-  }, [isPlaying, playheadMs, playbackEntries, previewMuted, previewVolume, syncTransport]);
+  }, [isPlaying, playheadMs, playbackEntries, previewMuted, previewVolume]);
 
   useEffect(() => {
     if (!isPlaying) {
@@ -387,7 +386,7 @@ export function usePlaybackController({
     }
 
     syncTransport(livePlayheadMsRef.current, true);
-  }, [isPlaying, playbackEntries, previewMuted, previewVolume, syncTransport]);
+  }, [isPlaying, playbackEntries, previewMuted, previewVolume]);
 
   return {
     togglePlay,

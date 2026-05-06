@@ -21,7 +21,7 @@ import {
   Volume2,
   VolumeX,
 } from 'lucide-react';
-import { editorReducer, initialEditorState } from './editorReducer';
+import { editorReducer, initialEditorState } from '../application/editorReducer';
 import {
   basename,
   buildDefaultProjectState,
@@ -38,25 +38,25 @@ import {
   formatTransportTime,
   getTimelineDuration,
   toProjectDocument,
-} from './model';
-import type { EditorAsset, TimelineClip } from './model';
+} from '../domain/model';
+import type { EditorAsset, TimelineClip } from '../domain/model';
 import {
   buildEditorAsset,
   hydrateProjectAsset,
   isSupportedMediaPath,
   loadProjectDocument,
   saveProjectDocument,
-} from './mediaApi';
-import { createLogger, getErrorMessage, serializeError } from '../../utils/logger';
-import { openExportWindow } from './exportApi';
-import { preparePendingExportSession } from './exportSession';
-import { sortTracksDescending } from './timelineCommands';
+} from '../infrastructure/mediaApi';
+import { createLogger, getErrorMessage, serializeError } from '../../../utils/logger';
+import { openExportWindow } from '../../export/infrastructure/exportApi';
+import { preparePendingExportSession } from '../../export/application/exportSession';
+import { sortTracksDescending } from '../domain/timelineCommands';
 import {
   getPlaybackPreviewState,
   type PlaybackPreviewState,
   type PlaybackTimelineEntry,
   usePlaybackController,
-} from './usePlaybackController';
+} from '../application/usePlaybackController';
 import styles from './MediaEditorWorkspace.module.css';
 
 const log = createLogger('MediaEditorWorkspace');
@@ -118,8 +118,8 @@ function rulerStepForZoom(zoom: number) {
 
 export const MediaEditorWorkspace: React.FC = () => {
   const [state, dispatch] = useReducer(editorReducer, initialEditorState);
-  const [errorMessage, setErrorMessage] = useState<string | null>(null);
-  const [, setStatusMessage] = useState<string | null>(null);
+  const [projectFeedback, setProjectFeedback] = useState<string | null>(null);
+  const [importFeedback, setImportFeedback] = useState<string | null>(null);
   const [, setIsImporting] = useState(false);
   const [, setIsProjectLoading] = useState(false);
   const [isExternalDropActive, setIsExternalDropActive] = useState(false);
@@ -552,13 +552,12 @@ export const MediaEditorWorkspace: React.FC = () => {
   const importMediaPaths = useCallback(async (paths: string[]) => {
     const filtered = [...new Set(paths)].filter(isSupportedMediaPath);
     if (filtered.length === 0) {
-      setErrorMessage('No supported video or audio files were selected.');
+      setImportFeedback('No supported video or audio files were selected.');
       return;
     }
 
     setIsImporting(true);
-    setErrorMessage(null);
-    setStatusMessage('Importing media...');
+    setImportFeedback(null);
 
     try {
       const results = await Promise.allSettled(filtered.map((path) => buildEditorAsset(path)));
@@ -572,16 +571,14 @@ export const MediaEditorWorkspace: React.FC = () => {
       }
 
       if (failures.length > 0) {
-        setErrorMessage(
+        setImportFeedback(
           failures[0].reason instanceof Error
             ? failures[0].reason.message
             : `${failures.length} file(s) failed to import.`,
         );
       }
-
-      setStatusMessage(assets.length > 0 ? `Imported ${assets.length} media file(s).` : null);
     } catch (error) {
-      setErrorMessage(error instanceof Error ? error.message : 'Failed to import media.');
+      setImportFeedback(error instanceof Error ? error.message : 'Failed to import media.');
     } finally {
       setIsImporting(false);
     }
@@ -634,8 +631,7 @@ export const MediaEditorWorkspace: React.FC = () => {
 
   const loadProjectFromPath = async (path: string) => {
     setIsProjectLoading(true);
-    setErrorMessage(null);
-    setStatusMessage('Opening project...');
+    setProjectFeedback(null);
 
     try {
       const document = await loadProjectDocument(path);
@@ -648,21 +644,17 @@ export const MediaEditorWorkspace: React.FC = () => {
         assets: hydratedAssets,
         tracks: document.tracks.length > 0 ? document.tracks : buildDefaultProjectState().tracks,
         clips: document.clips,
-        playheadMs: Math.max(0, document.playheadMs ?? 0),
-        zoom: clamp(document.zoom ?? buildDefaultProjectState().zoom, MIN_ZOOM, MAX_ZOOM),
-        previewVolume: clamp(document.previewVolume ?? 0.85, 0, 1),
-        previewMuted: Boolean(document.previewMuted),
+        renderProfile: document.renderProfile ?? buildDefaultProjectState().renderProfile,
       };
 
       zoomWasManuallyAdjustedRef.current = true;
       dispatch({ type: 'replace-project', nextState });
-      setStatusMessage(`Opened ${projectNameFromPath(path)}.`);
     } catch (error) {
       log.error('Failed to open project.', {
         path,
         error: serializeError(error),
       });
-      setErrorMessage(getErrorMessage(error, 'Failed to open project.'));
+      setProjectFeedback(getErrorMessage(error, 'Failed to open project.'));
     } finally {
       setIsProjectLoading(false);
     }
@@ -731,14 +723,13 @@ export const MediaEditorWorkspace: React.FC = () => {
         documentPath,
         documentName: projectNameFromPath(documentPath),
       });
-      setStatusMessage(`Saved ${projectNameFromPath(documentPath)}.`);
-      setErrorMessage(null);
+      setProjectFeedback(null);
     } catch (error) {
       log.error('Failed to save project.', {
         path: state.documentPath,
         error: serializeError(error),
       });
-      setErrorMessage(getErrorMessage(error, 'Failed to save project.'));
+      setProjectFeedback(getErrorMessage(error, 'Failed to save project.'));
     }
   };
 
@@ -750,18 +741,17 @@ export const MediaEditorWorkspace: React.FC = () => {
     stopPlayback();
     zoomWasManuallyAdjustedRef.current = false;
     dispatch({ type: 'reset-project' });
-    setStatusMessage('Started a new project.');
-    setErrorMessage(null);
+    setProjectFeedback(null);
+    setImportFeedback(null);
   };
 
   const handleOpenExportWindow = async () => {
     stopPlayback();
-    setErrorMessage(null);
+    setProjectFeedback(null);
 
     try {
-      const session = preparePendingExportSession(state);
-      await openExportWindow(session);
-      setStatusMessage('Opened export settings.');
+      const snapshot = preparePendingExportSession(state);
+      await openExportWindow(snapshot);
     } catch (error) {
       log.error('Failed to open export window.', {
         error: serializeError(error),
@@ -771,7 +761,7 @@ export const MediaEditorWorkspace: React.FC = () => {
           assets: state.assets.length,
         },
       });
-      setErrorMessage(getErrorMessage(error, 'Failed to open export window.'));
+      setProjectFeedback(getErrorMessage(error, 'Failed to open export window.'));
     }
   };
 
@@ -794,9 +784,9 @@ export const MediaEditorWorkspace: React.FC = () => {
     try {
       const asset = await buildEditorAsset(selection);
       dispatch({ type: 'relink-asset', assetId, asset });
-      setStatusMessage(`Relinked ${asset.name}.`);
+      setImportFeedback(null);
     } catch (error) {
-      setErrorMessage(error instanceof Error ? error.message : 'Failed to relink media.');
+      setImportFeedback(error instanceof Error ? error.message : 'Failed to relink media.');
     }
   };
 
@@ -955,11 +945,11 @@ export const MediaEditorWorkspace: React.FC = () => {
         </div>
       </section>
 
-      {errorMessage && (
+      {projectFeedback && (
         <section className={styles.noticeBar}>
           <div className={`${styles.notice} ${styles.noticeError}`}>
             <AlertCircle size={15} />
-            <span>{errorMessage}</span>
+            <span>{projectFeedback}</span>
           </div>
         </section>
       )}
@@ -984,6 +974,13 @@ export const MediaEditorWorkspace: React.FC = () => {
             <div className={styles.missingSummary}>
               <AlertCircle size={15} />
               <span>{missingAssets.length} file(s) missing. Relink them before playback/export.</span>
+            </div>
+          )}
+
+          {importFeedback && (
+            <div className={styles.missingSummary}>
+              <AlertCircle size={15} />
+              <span>{importFeedback}</span>
             </div>
           )}
 

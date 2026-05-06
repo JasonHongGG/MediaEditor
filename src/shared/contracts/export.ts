@@ -1,10 +1,10 @@
-import type { TimelineClip, TimelineTrack } from './model';
+import type {
+  RenderProfile,
+  TimelineClip,
+  TimelineTrack,
+} from './editor';
 
-export type ExportFormat = 'mp4' | 'mkv' | 'mp3' | 'm4a' | 'wav';
-
-export type VideoQuality = 'source' | '2160p' | '1440p' | '1080p' | '720p' | '480p';
-
-export type AudioBitrateKbps = 320 | 256 | 192 | 128 | 96;
+export type { AudioBitrateKbps, ExportFormat, RenderProfile, VideoQuality } from './editor';
 
 export interface ExportSource {
   id: string;
@@ -16,14 +16,14 @@ export interface ExportSource {
   height?: number;
 }
 
-export interface ExportTrack extends Pick<TimelineTrack, 'id' | 'name' | 'order'> {}
+export type ExportTrack = Pick<TimelineTrack, 'id' | 'name' | 'order'>;
 
-export interface ExportClip extends Pick<
+export type ExportClip = Pick<
   TimelineClip,
   'id' | 'assetId' | 'trackId' | 'startMs' | 'inPointMs' | 'outPointMs' | 'muted'
-> {}
+>;
 
-export interface PendingExportSession {
+export interface ExportSnapshot {
   projectName: string;
   suggestedName: string;
   timelineDurationMs: number;
@@ -34,14 +34,13 @@ export interface PendingExportSession {
   sources: ExportSource[];
   tracks: ExportTrack[];
   clips: ExportClip[];
+  renderProfile: RenderProfile;
 }
 
 export interface TimelineExportRequest {
   outputPath: string;
-  format: ExportFormat;
-  videoQuality?: VideoQuality;
-  audioBitrateKbps?: AudioBitrateKbps;
-  session: PendingExportSession;
+  profile: RenderProfile;
+  snapshot: ExportSnapshot;
 }
 
 export interface ExportProgressPayload {

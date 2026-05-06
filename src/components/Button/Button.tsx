@@ -7,8 +7,6 @@ interface ButtonProps extends Omit<HTMLMotionProps<"button">, 'ref'> {
   size?: 'sm' | 'md' | 'lg';
   icon?: React.ReactNode;
   loading?: boolean;
-  tooltip?: React.ReactNode;
-  tooltipPosition?: 'top' | 'bottom' | 'left' | 'right';
 }
 
 export const Button = React.forwardRef<HTMLButtonElement, ButtonProps>(
@@ -20,8 +18,6 @@ export const Button = React.forwardRef<HTMLButtonElement, ButtonProps>(
     loading,
     className = '',
     disabled,
-    tooltip,
-    tooltipPosition = 'top',
     ...props
   }, ref) => {
     const button = (

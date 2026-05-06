@@ -15,18 +15,18 @@ import {
   Settings2,
   AlertTriangle,
 } from 'lucide-react';
-import { createLogger, getErrorMessage, serializeError } from '../../utils/logger';
-import { getPendingExportSession, processTimelineExport } from './exportApi';
+import { createLogger, getErrorMessage, serializeError } from '../../../utils/logger';
+import { getPendingExportSession, processTimelineExport } from '../infrastructure/exportApi';
 import type {
   AudioBitrateKbps,
+  ExportSnapshot,
   ExportFormat,
   ExportProgressPayload,
-  PendingExportSession,
   VideoQuality,
-} from './exportTypes';
-import { formatTransportTime } from './model';
+} from '../application/exportTypes';
+import { formatTransportTime } from '../../editor/domain/model';
 import styles from './ExportWindow.module.css';
-import { Select } from '../../components/Select/Select';
+import { Select } from '../../../components/Select/Select';
 
 type ExportStatus = 'loading' | 'idle' | 'running' | 'done' | 'error';
 const log = createLogger('ExportWindow');
@@ -54,16 +54,30 @@ const DEFAULT_PROGRESS: ExportProgressPayload = {
   failed: false,
 };
 
-function defaultFormatForSession(session: PendingExportSession | null): ExportFormat {
-  return session?.hasVideo ? 'mp4' : 'mp3';
+function replaceOutputExtension(path: string, format: ExportFormat) {
+  if (!path) {
+    return path;
+  }
+
+  const lastSlashIndex = Math.max(path.lastIndexOf('/'), path.lastIndexOf('\\'));
+  const lastDotIndex = path.lastIndexOf('.');
+  if (lastDotIndex <= lastSlashIndex) {
+    return `${path}.${format}`;
+  }
+
+  return `${path.slice(0, lastDotIndex)}.${format}`;
 }
 
-function suggestedFilename(session: PendingExportSession | null, format: ExportFormat) {
-  return `${session?.suggestedName?.trim() || 'timeline-export'}.${format}`;
+function defaultFormatForSession(snapshot: ExportSnapshot | null): ExportFormat {
+  return snapshot?.renderProfile.format ?? (snapshot?.hasVideo ? 'mp4' : 'mp3');
+}
+
+function suggestedFilename(snapshot: ExportSnapshot | null, format: ExportFormat) {
+  return `${snapshot?.suggestedName?.trim() || 'timeline-export'}.${format}`;
 }
 
 export const ExportWindow: React.FC = () => {
-  const [session, setSession] = React.useState<PendingExportSession | null>(null);
+  const [snapshot, setSnapshot] = React.useState<ExportSnapshot | null>(null);
   const [format, setFormat] = React.useState<ExportFormat>('mp4');
   const [videoQuality, setVideoQuality] = React.useState<VideoQuality>('1080p');
   const [audioBitrateKbps, setAudioBitrateKbps] = React.useState<AudioBitrateKbps>(320);
@@ -75,64 +89,80 @@ export const ExportWindow: React.FC = () => {
   const isVideoOutput = format === 'mp4' || format === 'mkv';
   const usesAudioBitrate = format === 'mp3' || format === 'm4a';
 
+  const applySnapshot = React.useCallback((nextSnapshot: ExportSnapshot | null) => {
+    if (!nextSnapshot) {
+      setSnapshot(null);
+      setStatus('error');
+      setErrorMessage('No timeline is queued for export yet.');
+      return;
+    }
+
+    setSnapshot(nextSnapshot);
+    setFormat(defaultFormatForSession(nextSnapshot));
+    setVideoQuality(nextSnapshot.renderProfile.videoQuality ?? '1080p');
+    setAudioBitrateKbps(nextSnapshot.renderProfile.audioBitrateKbps ?? 320);
+    setOutputPath('');
+    setProgress(DEFAULT_PROGRESS);
+    setStatus('idle');
+    setErrorMessage(null);
+  }, []);
+
+  const loadPendingSession = React.useCallback(async () => {
+    const nextSnapshot = await getPendingExportSession();
+    log.info('Loaded pending export session.', nextSnapshot ? {
+      projectName: nextSnapshot.projectName,
+      clipCount: nextSnapshot.clips.length,
+    } : 'empty');
+    return nextSnapshot;
+  }, []);
+
   const refreshSession = React.useCallback(async () => {
     setStatus('loading');
     setErrorMessage(null);
 
     try {
-      const nextSession = await getPendingExportSession();
-      log.info('Loaded pending export session.', nextSession ? {
-        projectName: nextSession.projectName,
-        clipCount: nextSession.clips.length,
-      } : 'empty');
-      setSession(nextSession);
-      setFormat((current) => (current ? current : defaultFormatForSession(nextSession)));
-      if (!nextSession) {
-        setStatus('error');
-        setErrorMessage('No timeline is queued for export yet.');
-        return;
-      }
-
-      setFormat(defaultFormatForSession(nextSession));
-      setOutputPath('');
-      setProgress(DEFAULT_PROGRESS);
-      setStatus('idle');
+      applySnapshot(await loadPendingSession());
     } catch (error) {
       log.error('Failed to load export session.', serializeError(error));
       setStatus('error');
       setErrorMessage(getErrorMessage(error, 'Failed to load export session.'));
     }
+  }, [applySnapshot, loadPendingSession]);
+
+  const handleFormatChange = React.useCallback((nextFormat: ExportFormat) => {
+    setFormat(nextFormat);
+    setOutputPath((currentPath) => (currentPath ? replaceOutputExtension(currentPath, nextFormat) : currentPath));
   }, []);
 
   React.useEffect(() => {
-    if (!outputPath) return;
-
-    const lastDotIndex = outputPath.lastIndexOf('.');
-    if (lastDotIndex === -1) {
-      setOutputPath(`${outputPath}.${format}`);
-      return;
-    }
-
-    // Replace existing extension with the new format
-    const base = outputPath.slice(0, lastDotIndex);
-    setOutputPath(`${base}.${format}`);
-  }, [format]);
-
-  React.useEffect(() => {
-    void refreshSession();
-
     let disposed = false;
     let removeSessionListener: (() => void) | undefined;
     let removeProgressListener: (() => void) | undefined;
 
-    void listen<PendingExportSession>('editor/export-session-updated', (event) => {
+    const loadInitialSession = async () => {
+      try {
+        const nextSnapshot = await loadPendingSession();
+        if (disposed) {
+          return;
+        }
+
+        applySnapshot(nextSnapshot);
+      } catch (error) {
+        if (disposed) {
+          return;
+        }
+
+        log.error('Failed to load export session.', serializeError(error));
+        setStatus('error');
+        setErrorMessage(getErrorMessage(error, 'Failed to load export session.'));
+      }
+    };
+
+    void loadInitialSession();
+
+    void listen<ExportSnapshot>('editor/export-session-updated', (event) => {
       if (disposed) return;
-      setSession(event.payload);
-      setFormat(defaultFormatForSession(event.payload));
-      setOutputPath('');
-      setProgress(DEFAULT_PROGRESS);
-      setStatus('idle');
-      setErrorMessage(null);
+      applySnapshot(event.payload);
     }).then((unlisten) => {
       removeSessionListener = unlisten;
     });
@@ -165,12 +195,12 @@ export const ExportWindow: React.FC = () => {
       removeSessionListener?.();
       removeProgressListener?.();
     };
-  }, [refreshSession]);
+  }, [applySnapshot, loadPendingSession]);
 
   const pickOutputPath = React.useCallback(async () => {
     const selectedPath = await save({
       title: 'Export timeline',
-      defaultPath: outputPath || suggestedFilename(session, format),
+      defaultPath: outputPath || suggestedFilename(snapshot, format),
       filters: [{ name: format.toUpperCase(), extensions: [format] }],
     });
 
@@ -181,10 +211,10 @@ export const ExportWindow: React.FC = () => {
       : `${selectedPath}.${format}`;
     setOutputPath(normalizedPath);
     return normalizedPath;
-  }, [format, outputPath, session]);
+  }, [format, outputPath, snapshot]);
 
   const handleExport = React.useCallback(async () => {
-    if (!session || status === 'running') return;
+    if (!snapshot || status === 'running') return;
 
     setErrorMessage(null);
     setStatus('running');
@@ -217,10 +247,13 @@ export const ExportWindow: React.FC = () => {
 
       await processTimelineExport({
         outputPath: finalPath,
-        format,
-        videoQuality,
-        audioBitrateKbps,
-        session,
+        profile: {
+          format,
+          fps: snapshot.renderProfile.fps,
+          videoQuality,
+          audioBitrateKbps,
+        },
+        snapshot,
       });
     } catch (error) {
       const message = getErrorMessage(error, 'Export failed.');
@@ -234,7 +267,7 @@ export const ExportWindow: React.FC = () => {
         failed: true,
       });
     }
-  }, [audioBitrateKbps, format, outputPath, pickOutputPath, session, status, videoQuality]);
+  }, [audioBitrateKbps, format, outputPath, pickOutputPath, snapshot, status, videoQuality]);
 
   const handleClose = async () => {
     await getCurrentWindow().close();
@@ -254,7 +287,7 @@ export const ExportWindow: React.FC = () => {
 
       <main className={styles.mainContent}>
         <AnimatePresence mode="wait">
-          {!session ? (
+          {!snapshot ? (
             <motion.div
               key="empty"
               initial={{ opacity: 0, y: 10 }}
@@ -280,20 +313,20 @@ export const ExportWindow: React.FC = () => {
             >
               {/* Top Section: Overview */}
               <div className={styles.sessionOverview}>
-                <div className={styles.projectName}>{session.projectName}</div>
+                <div className={styles.projectName}>{snapshot.projectName}</div>
                 <div className={styles.metaRow}>
                   <div className={styles.metaBadge}>
                     <Video size={14} />
-                    {session.dominantWidth && session.dominantHeight
-                      ? `${session.dominantWidth}x${session.dominantHeight}`
+                    {snapshot.dominantWidth && snapshot.dominantHeight
+                      ? `${snapshot.dominantWidth}x${snapshot.dominantHeight}`
                       : 'Audio'}
                   </div>
                   <div className={styles.metaBadge}>
                     <Music4 size={14} />
-                    {formatTransportTime(session.timelineDurationMs)}
+                    {formatTransportTime(snapshot.timelineDurationMs)}
                   </div>
                   <div className={styles.metaBadge}>
-                    {session.clips.length} Clips
+                    {snapshot.clips.length} Clips
                   </div>
                 </div>
               </div>
@@ -308,7 +341,7 @@ export const ExportWindow: React.FC = () => {
                       return (
                         <button
                           key={opt.value}
-                          onClick={() => setFormat(opt.value)}
+                          onClick={() => handleFormatChange(opt.value)}
                           className={`${styles.formatPill} ${isActive ? styles.active : ''}`}
                         >
                           {isActive && (
@@ -359,7 +392,7 @@ export const ExportWindow: React.FC = () => {
                   <div className={styles.pathInputGroup}>
                     <input
                       type="text"
-                      placeholder={suggestedFilename(session, format)}
+                      placeholder={suggestedFilename(snapshot, format)}
                       value={outputPath}
                       onChange={(e) => setOutputPath(e.target.value)}
                       className={styles.pathInput}
