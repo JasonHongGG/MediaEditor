@@ -104,6 +104,11 @@ export function usePlaybackController({
   const anchorRef = useRef<{ originPlayheadMs: number; startedAt: number } | null>(null);
   const livePlayheadMsRef = useRef(playheadMs);
   const lastPreviewKeyRef = useRef<string>('');
+  const pendingPausedVideoSeekRef = useRef<{
+    clipId: string;
+    assetUrl: string;
+    expectedTime: number;
+  } | null>(null);
   const latestStateRef = useRef({
     isPlaying,
     playheadMs,
@@ -139,14 +144,56 @@ export function usePlaybackController({
     handlePreviewChange?.(previewState);
   }, []);
 
+  const flushPendingPausedVideoSeek = useCallback(() => {
+    const element = videoRef.current;
+    const pendingSeek = pendingPausedVideoSeekRef.current;
+    if (!element || !pendingSeek) {
+      return;
+    }
+
+    if (element.dataset.clipId !== pendingSeek.clipId || element.dataset.assetUrl !== pendingSeek.assetUrl) {
+      pendingPausedVideoSeekRef.current = null;
+      return;
+    }
+
+    if (element.readyState < HTMLMediaElement.HAVE_METADATA || element.seeking) {
+      return;
+    }
+
+    pendingPausedVideoSeekRef.current = null;
+    syncMediaTime(element, pendingSeek.expectedTime, false);
+  }, [videoRef]);
+
+  useEffect(() => {
+    const element = videoRef.current;
+    if (!element) {
+      return undefined;
+    }
+
+    const handleSeekSettled = () => {
+      flushPendingPausedVideoSeek();
+    };
+
+    element.addEventListener('loadedmetadata', handleSeekSettled);
+    element.addEventListener('canplay', handleSeekSettled);
+    element.addEventListener('seeked', handleSeekSettled);
+
+    return () => {
+      element.removeEventListener('loadedmetadata', handleSeekSettled);
+      element.removeEventListener('canplay', handleSeekSettled);
+      element.removeEventListener('seeked', handleSeekSettled);
+    };
+  }, [flushPendingPausedVideoSeek, videoRef]);
+
   const syncVideoElement = useCallback(
-    (activeVideoEntry: PlaybackTimelineEntry | null, targetPlayheadMs: number, playing: boolean) => {
+    (activeVideoEntry: PlaybackTimelineEntry | null, targetPlayheadMs: number, playing: boolean, scrubbing: boolean) => {
       const element = videoRef.current;
       if (!element) {
         return;
       }
 
       if (!activeVideoEntry || !activeVideoEntry.asset.url) {
+        pendingPausedVideoSeekRef.current = null;
         element.pause();
         delete element.dataset.clipId;
         delete element.dataset.assetUrl;
@@ -155,14 +202,16 @@ export function usePlaybackController({
         return;
       }
 
+      const assetUrl = activeVideoEntry.asset.url;
       const expectedTime = (activeVideoEntry.clip.inPointMs + (targetPlayheadMs - activeVideoEntry.clip.startMs)) / 1000;
       const sourceChanged = element.dataset.clipId !== activeVideoEntry.clip.id
-        || element.dataset.assetUrl !== activeVideoEntry.asset.url;
+        || element.dataset.assetUrl !== assetUrl;
 
       if (sourceChanged) {
+        pendingPausedVideoSeekRef.current = null;
         element.dataset.clipId = activeVideoEntry.clip.id;
-        element.dataset.assetUrl = activeVideoEntry.asset.url;
-        element.src = activeVideoEntry.asset.url;
+        element.dataset.assetUrl = assetUrl;
+        element.src = assetUrl;
         element.load();
 
         const syncWhenReady = () => {
@@ -170,21 +219,40 @@ export function usePlaybackController({
             return;
           }
 
-          syncMediaTime(element, expectedTime, false);
-          if (playing) {
-            void element.play().catch(() => {
-              /* ignore transient video startup failures while the source is warming up */
-            });
+          if (!playing) {
+            pendingPausedVideoSeekRef.current = {
+              clipId: activeVideoEntry.clip.id,
+              assetUrl,
+              expectedTime,
+            };
+            flushPendingPausedVideoSeek();
+            element.pause();
             return;
           }
 
-          element.pause();
+          syncMediaTime(element, expectedTime, false);
+          void element.play().catch(() => {
+            /* ignore transient video startup failures while the source is warming up */
+          });
         };
 
         element.addEventListener('loadedmetadata', syncWhenReady, { once: true });
         element.addEventListener('canplay', syncWhenReady, { once: true });
         return;
       }
+
+      if (!playing && scrubbing) {
+        pendingPausedVideoSeekRef.current = {
+          clipId: activeVideoEntry.clip.id,
+          assetUrl,
+          expectedTime,
+        };
+        flushPendingPausedVideoSeek();
+        element.pause();
+        return;
+      }
+
+      pendingPausedVideoSeekRef.current = null;
 
       syncMediaTime(element, expectedTime, playing);
 
@@ -199,10 +267,10 @@ export function usePlaybackController({
 
       element.pause();
     },
-    [videoRef],
+    [flushPendingPausedVideoSeek, videoRef],
   );
 
-  const syncTransport = React.useEffectEvent((targetPlayheadMs: number, playing: boolean) => {
+  const syncTransport = React.useEffectEvent((targetPlayheadMs: number, playing: boolean, scrubbing = false) => {
     const {
       timelineDurationMs: currentTimelineDurationMs,
       playbackEntries: currentPlaybackEntries,
@@ -220,7 +288,14 @@ export function usePlaybackController({
       previewAsset: snapshot.previewAsset,
       hasActiveVideo: snapshot.hasActiveVideo,
     });
-    syncVideoElement(snapshot.activeVideoEntry, boundedPlayheadMs, playing);
+    syncVideoElement(snapshot.activeVideoEntry, boundedPlayheadMs, playing, scrubbing);
+
+    if (scrubbing && !playing) {
+      for (const element of audioRefs.current.values()) {
+        element.pause();
+      }
+      return;
+    }
 
     for (const [clipId, element] of audioRefs.current.entries()) {
       if (!activeAudioIds.has(clipId)) {
@@ -268,20 +343,21 @@ export function usePlaybackController({
     }
   };
 
-  const seekTo = (nextPlayheadMs: number, preservePlayback = false) => {
+  const seekTo = (nextPlayheadMs: number, preservePlayback = false, commit = true) => {
     const {
       isPlaying: currentlyPlaying,
       playheadMs: currentPlayheadMs,
       timelineDurationMs: currentTimelineDurationMs,
     } = latestStateRef.current;
     const boundedPlayheadMs = clamp(nextPlayheadMs, 0, currentTimelineDurationMs);
-    syncTransport(boundedPlayheadMs, preservePlayback && currentlyPlaying);
+    const continuePlayback = preservePlayback && currentlyPlaying;
+    syncTransport(boundedPlayheadMs, continuePlayback, !commit && !continuePlayback);
 
-    if (Math.abs(currentPlayheadMs - boundedPlayheadMs) >= 1) {
+    if (commit && Math.abs(currentPlayheadMs - boundedPlayheadMs) >= 1) {
       dispatch({ type: 'set-playhead', playheadMs: boundedPlayheadMs });
     }
 
-    if (preservePlayback && currentlyPlaying) {
+    if (continuePlayback) {
       anchorRef.current = {
         originPlayheadMs: boundedPlayheadMs,
         startedAt: performance.now(),

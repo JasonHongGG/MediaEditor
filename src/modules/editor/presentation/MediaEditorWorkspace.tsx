@@ -224,7 +224,7 @@ export const MediaEditorWorkspace: React.FC<MediaEditorWorkspaceProps> = ({ isAc
     () => getPlaybackPreviewState(playbackEntries, state.playheadMs),
     [playbackEntries, state.playheadMs],
   );
-  const previewState = state.isPlaying ? livePreviewState : committedPreviewState;
+  const previewState = state.isPlaying || timelineScrub !== null ? livePreviewState : committedPreviewState;
 
   const applyLiveTransportFrame = useCallback((playheadMs: number) => {
     livePlayheadMsRef.current = playheadMs;
@@ -820,14 +820,14 @@ export const MediaEditorWorkspace: React.FC<MediaEditorWorkspaceProps> = ({ isAc
     }
   };
 
-  const seekTimelineClientX = useCallback((clientX: number, boundsLeft: number, preservePlayback: boolean) => {
+  const seekTimelineClientX = useCallback((clientX: number, boundsLeft: number, preservePlayback: boolean, commit = false) => {
     const scroller = scrollRef.current;
     if (!scroller) {
       return;
     }
 
     const localX = Math.max(0, clientX - boundsLeft + scroller.scrollLeft);
-    seekTo(pxToMs(localX, zoomRef.current), preservePlayback);
+    seekTo(pxToMs(localX, zoomRef.current), preservePlayback, commit);
   }, [seekTo]);
 
   const handleTimelinePointerDown = (event: React.PointerEvent<HTMLElement>) => {
@@ -840,7 +840,7 @@ export const MediaEditorWorkspace: React.FC<MediaEditorWorkspaceProps> = ({ isAc
     const boundsLeft = event.currentTarget.getBoundingClientRect().left;
     const preservePlayback = state.isPlaying;
 
-    seekTimelineClientX(event.clientX, boundsLeft, preservePlayback);
+    seekTimelineClientX(event.clientX, boundsLeft, preservePlayback, false);
     setTimelineScrub({
       pointerId: event.pointerId,
       boundsLeft,
@@ -924,7 +924,7 @@ export const MediaEditorWorkspace: React.FC<MediaEditorWorkspaceProps> = ({ isAc
         return;
       }
 
-      seekTimelineClientX(event.clientX, timelineScrub.boundsLeft, timelineScrub.preservePlayback);
+      seekTimelineClientX(event.clientX, timelineScrub.boundsLeft, timelineScrub.preservePlayback, false);
     };
 
     const handlePointerUp = (event: PointerEvent) => {
@@ -932,7 +932,7 @@ export const MediaEditorWorkspace: React.FC<MediaEditorWorkspaceProps> = ({ isAc
         return;
       }
 
-      seekTimelineClientX(event.clientX, timelineScrub.boundsLeft, timelineScrub.preservePlayback);
+      seekTimelineClientX(event.clientX, timelineScrub.boundsLeft, timelineScrub.preservePlayback, true);
       setTimelineScrub(null);
     };
 
@@ -941,10 +941,14 @@ export const MediaEditorWorkspace: React.FC<MediaEditorWorkspaceProps> = ({ isAc
         return;
       }
 
+      seekTo(livePlayheadMsRef.current, timelineScrub.preservePlayback, true);
       setTimelineScrub(null);
     };
 
-    const cancelScrub = () => setTimelineScrub(null);
+    const cancelScrub = () => {
+      seekTo(livePlayheadMsRef.current, timelineScrub.preservePlayback, true);
+      setTimelineScrub(null);
+    };
 
     window.addEventListener('pointermove', handlePointerMove);
     window.addEventListener('pointerup', handlePointerUp);
@@ -957,7 +961,7 @@ export const MediaEditorWorkspace: React.FC<MediaEditorWorkspaceProps> = ({ isAc
       window.removeEventListener('pointercancel', handlePointerCancel);
       window.removeEventListener('blur', cancelScrub);
     };
-  }, [seekTimelineClientX, timelineScrub]);
+  }, [seekTimelineClientX, seekTo, timelineScrub]);
 
   const rulerStepMs = useMemo(() => rulerStepForZoom(state.zoom), [state.zoom]);
   const rulerTicks = useMemo(() => {
