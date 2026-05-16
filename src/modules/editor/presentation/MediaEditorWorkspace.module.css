@@ -586,6 +586,8 @@
   background: var(--bg-surface);
   border-bottom: 1px solid var(--border-subtle);
   cursor: pointer;
+  user-select: none;
+  touch-action: none;
 }
 
 .rulerTick {
@@ -618,6 +620,7 @@
       transparent var(--grid-step)
     ),
     var(--bg-base);
+  touch-action: none;
 }
 
 .trackLabelBlock {

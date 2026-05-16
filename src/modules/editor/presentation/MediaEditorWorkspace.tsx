@@ -82,6 +82,12 @@ type SourceDragState = {
   hasMoved: boolean;
 };
 
+type TimelineScrubState = {
+  pointerId: number;
+  boundsLeft: number;
+  preservePlayback: boolean;
+};
+
 type ClipInteraction =
   | {
       type: 'move';
@@ -129,6 +135,7 @@ export const MediaEditorWorkspace: React.FC<MediaEditorWorkspaceProps> = ({ isAc
   const [isExternalDropActive, setIsExternalDropActive] = useState(false);
   const [timelineViewportWidth, setTimelineViewportWidth] = useState(0);
   const [sourceDrag, setSourceDrag] = useState<SourceDragState | null>(null);
+  const [timelineScrub, setTimelineScrub] = useState<TimelineScrubState | null>(null);
   const [interaction, setInteraction] = useState<ClipInteraction | null>(null);
 
   const sourceDragRef = useRef<SourceDragState | null>(null);
@@ -813,14 +820,32 @@ export const MediaEditorWorkspace: React.FC<MediaEditorWorkspaceProps> = ({ isAc
     }
   };
 
-  const handleTimelineSeek = (event: React.PointerEvent<HTMLElement>) => {
-    if (!scrollRef.current) {
+  const seekTimelineClientX = useCallback((clientX: number, boundsLeft: number, preservePlayback: boolean) => {
+    const scroller = scrollRef.current;
+    if (!scroller) {
       return;
     }
 
-    const bounds = event.currentTarget.getBoundingClientRect();
-    const localX = event.clientX - bounds.left + scrollRef.current.scrollLeft;
-    seekTo(pxToMs(localX, state.zoom), state.isPlaying);
+    const localX = Math.max(0, clientX - boundsLeft + scroller.scrollLeft);
+    seekTo(pxToMs(localX, zoomRef.current), preservePlayback);
+  }, [seekTo]);
+
+  const handleTimelinePointerDown = (event: React.PointerEvent<HTMLElement>) => {
+    if (event.button !== 0 || !scrollRef.current) {
+      return;
+    }
+
+    event.preventDefault();
+
+    const boundsLeft = event.currentTarget.getBoundingClientRect().left;
+    const preservePlayback = state.isPlaying;
+
+    seekTimelineClientX(event.clientX, boundsLeft, preservePlayback);
+    setTimelineScrub({
+      pointerId: event.pointerId,
+      boundsLeft,
+      preservePlayback,
+    });
   };
 
   const handleSourcePointerDown = (event: React.PointerEvent<HTMLButtonElement>, assetId: string) => {
@@ -888,6 +913,51 @@ export const MediaEditorWorkspace: React.FC<MediaEditorWorkspaceProps> = ({ isAc
       originOutPointMs: clip.outPointMs,
     });
   };
+
+  useEffect(() => {
+    if (!timelineScrub) {
+      return undefined;
+    }
+
+    const handlePointerMove = (event: PointerEvent) => {
+      if (event.pointerId !== timelineScrub.pointerId) {
+        return;
+      }
+
+      seekTimelineClientX(event.clientX, timelineScrub.boundsLeft, timelineScrub.preservePlayback);
+    };
+
+    const handlePointerUp = (event: PointerEvent) => {
+      if (event.pointerId !== timelineScrub.pointerId) {
+        return;
+      }
+
+      seekTimelineClientX(event.clientX, timelineScrub.boundsLeft, timelineScrub.preservePlayback);
+      setTimelineScrub(null);
+    };
+
+    const handlePointerCancel = (event: PointerEvent) => {
+      if (event.pointerId !== timelineScrub.pointerId) {
+        return;
+      }
+
+      setTimelineScrub(null);
+    };
+
+    const cancelScrub = () => setTimelineScrub(null);
+
+    window.addEventListener('pointermove', handlePointerMove);
+    window.addEventListener('pointerup', handlePointerUp);
+    window.addEventListener('pointercancel', handlePointerCancel);
+    window.addEventListener('blur', cancelScrub);
+
+    return () => {
+      window.removeEventListener('pointermove', handlePointerMove);
+      window.removeEventListener('pointerup', handlePointerUp);
+      window.removeEventListener('pointercancel', handlePointerCancel);
+      window.removeEventListener('blur', cancelScrub);
+    };
+  }, [seekTimelineClientX, timelineScrub]);
 
   const rulerStepMs = useMemo(() => rulerStepForZoom(state.zoom), [state.zoom]);
   const rulerTicks = useMemo(() => {
@@ -1174,7 +1244,7 @@ export const MediaEditorWorkspace: React.FC<MediaEditorWorkspaceProps> = ({ isAc
               >
                 <div className={styles.rulerRow}>
                   <div className={styles.stickyCell}>Tracks</div>
-                  <button type="button" className={styles.rulerSurface} onPointerDown={handleTimelineSeek}>
+                  <button type="button" className={styles.rulerSurface} onPointerDown={handleTimelinePointerDown}>
                     {rulerTicks.map((tickMs) => (
                       <div key={tickMs} className={styles.rulerTick} style={{ left: `${msToPx(tickMs, state.zoom)}px` }}>
                         <span>{formatRulerLabel(tickMs)}</span>
@@ -1204,7 +1274,7 @@ export const MediaEditorWorkspace: React.FC<MediaEditorWorkspaceProps> = ({ isAc
                     <div
                       className={styles.trackLane}
                       data-track-lane-id={track.id}
-                      onPointerDown={handleTimelineSeek}
+                      onPointerDown={handleTimelinePointerDown}
                       style={{ '--grid-step': `${msToPx(rulerStepMs, state.zoom)}px` } as React.CSSProperties}
                     >
                       <div className={styles.playhead} />
