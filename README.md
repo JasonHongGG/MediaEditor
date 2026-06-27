@@ -41,8 +41,8 @@ npm run tauri dev
 
 | Command | Description | Output |
 |---------|-------------|--------|
-| `npm run build:exe` | Build standalone exe only (fast, no installer) | `src-tauri/target/release/media-editor.exe` |
-| `npm run build:installer` | Build NSIS installer (includes bundled binaries) | `src-tauri/target/release/bundle/nsis/media-editor_*_x64-setup.exe` |
+| `npm run build:exe` | Build standalone exe only (fast, no installer) | `src-tauri/target/release/MediaEditor.exe` |
+| `npm run build:installer` | Build NSIS installer (includes bundled binaries) | `src-tauri/target/release/bundle/nsis/MediaEditor_*_x64-setup.exe` |
 | `npm run build:portable` | Build exe + copy binaries into portable folder | `dist-portable/` |
 
 ### Standalone EXE (Portable)
@@ -51,7 +51,7 @@ The portable distribution requires the exe and `bin/` folder together:
 
 ```
 dist-portable/
-├── media-editor.exe
+├── MediaEditor.exe
 └── bin/
     ├── ffmpeg.exe
     ├── ffprobe.exe
@@ -74,7 +74,7 @@ For a full installer that bundles everything including WebView2:
 npm run build:installer
 ```
 
-The installer will be at `src-tauri/target/release/bundle/nsis/media-editor_0.1.0_x64-setup.exe`.
+The installer will be at `src-tauri/target/release/bundle/nsis/MediaEditor_0.1.0_x64-setup.exe`.
 
 ---
 

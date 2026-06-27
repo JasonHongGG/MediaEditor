@@ -1,8 +1,8 @@
 {
   "$schema": "../node_modules/@tauri-apps/cli/config.schema.json",
-  "productName": "media-editor",
+  "productName": "MediaEditor",
   "version": "0.1.0",
-  "identifier": "com.jasonhong.media-editor",
+  "identifier": "com.jasonhong.MediaEditor",
   "build": {
     "frontendDist": "../dist",
     "devUrl": "http://localhost:5173",

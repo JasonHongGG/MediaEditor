@@ -1,5 +1,5 @@
 [package]
-name = "media-editor"
+name = "MediaEditor"
 version = "0.1.0"
 description = "A Tauri App"
 authors = ["you"]
